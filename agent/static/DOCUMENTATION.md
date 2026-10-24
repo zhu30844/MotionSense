@@ -1,5 +1,7 @@
 # MotionSense Web Interface Documentation
 
+Last edited: 2026-07-23
+
 Complete documentation for the MotionSense web interface.
 
 ## 📚 Documentation Index
@@ -168,5 +170,4 @@ www/html/
 ---
 
 **Documentation Version:** 2.0.0  
-**Last Updated:** 2025-07-26  
 **Maintained By:** MotionSense Development Team 

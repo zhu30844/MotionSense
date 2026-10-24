@@ -1,5 +1,7 @@
 # Development notes
 
+Last edited: 2026-09-05
+
 Working practices for this board, recorded because each one cost time to
 establish. Build and configuration details are in [BUILD.md](BUILD.md); this
 file is about the loop you work in.

@@ -1,5 +1,9 @@
 # MotionSense
 
+English | [简体中文](README_cn.md)
+
+Last edited: 2026-10-24
+
 Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
 RV1106). Records H.264 to HLS on the SD card, serves a live MJPEG stream and a
 playback UI over HTTP, and logs motion events to SQLite.
@@ -17,6 +21,22 @@ dorm room, a store cupboard, a warehouse aisle.
 - **Keep a day small.** The same switch is what holds the footage down.
 - **See where the activity was.** Every switch to the high rate leaves a mark
   on the seek bar.
+
+## Screenshots
+
+Live view, with the OSD timestamp and the device status bar:
+
+![Live view](docs/img/Screenshot%20From%202026-09-05%2012-52-56.png)
+
+History: a calendar of the days with footage, coloured by how much motion each
+day had:
+
+![Motion calendar](docs/img/Screenshot%20From%202026-09-05%2012-19-39.png)
+
+Playback of one day. The red marks on the seek bar are the switches to the
+high rate:
+
+![Playback](docs/img/Screenshot%20From%202026-09-05%2012-20-03.png)
 
 ## Features
 

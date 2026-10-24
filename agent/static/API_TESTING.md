@@ -1,5 +1,7 @@
 # MotionSense API Testing Guide
 
+Last edited: 2026-07-23
+
 This document provides comprehensive testing examples for all MotionSense web APIs.
 
 ## 🛠️ Testing Tools

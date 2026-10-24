@@ -1,5 +1,7 @@
 # MotionSense Web Interface - Quick Start Guide
 
+Last edited: 2026-07-23
+
 Get up and running with the MotionSense web interface in minutes.
 
 ## 🚀 Quick Start

@@ -1,5 +1,7 @@
 # Building and installing MotionSense
 
+Last edited: 2026-09-05
+
 MotionSense targets the Luckfox Pico Pro Max (Rockchip RV1106, SPI NAND).
 It is built as an application inside the Luckfox SDK, and lives at
 `project/app/motionsense` in a fork of that SDK:

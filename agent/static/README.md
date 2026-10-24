@@ -1,5 +1,7 @@
 # MotionSense Web Interface
 
+Last edited: 2026-07-23
+
 A modern, responsive web interface for the MotionSense surveillance system running on Luckfox Pico RV1106 platform.
 
 ## 🚀 Features
@@ -328,5 +330,4 @@ try {
 ---
 
 **Version:** 2.0.0  
-**Last Updated:** 2025-07-26  
 **Compatibility:** MotionSense v1.3.0+

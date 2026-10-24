@@ -1,5 +1,7 @@
 # Third-party components
 
+Last edited: 2026-09-05
+
 `../LICENSE` (MIT) covers the code written for this project. This file lists
 everything else in the tree and the terms it carries. Paths are relative to
 the repository root, not to this directory.
