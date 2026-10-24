@@ -1,0 +1,6 @@
+# Path-like tokens that check.py must not report. Each one was reviewed and is
+# not meant to exist in either repo. Add a reason; delete the line when the
+# mention goes away.
+
+hls.js                                          # browser library name (agent/internal/server/server.go comment)
+sysdrv/source/buildroot/buildroot-2023.02.6/configs  # extracted by the SDK build, never tracked (docs/BUILD.md)
