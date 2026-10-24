@@ -1,6 +1,6 @@
 # MotionSense Web Interface Documentation
 
-Last edited: 2026-07-23
+Last edited: 2026-10-24
 
 Complete documentation for the MotionSense web interface.
 
@@ -114,9 +114,9 @@ www/html/
 ### Common Issues
 | Issue | Solution | Documentation |
 |-------|----------|---------------|
-| Can't access interface | Check IP and connectivity | [Quick Start](QUICKSTART.md#troubleshooting) |
-| Live stream not working | Check camera and device status | [Quick Start](QUICKSTART.md#troubleshooting) |
-| No motion markers | Verify API and data | [API Testing](API_TESTING.md#response-validation) |
+| Can't access interface | Check IP and connectivity | [Quick Start](QUICKSTART.md#-troubleshooting) |
+| Live stream not working | Check camera and device status | [Quick Start](QUICKSTART.md#-troubleshooting) |
+| No motion markers | Verify API and data | [API Testing](API_TESTING.md#-response-validation) |
 | Calendar not loading | Check motion counts API | [API Testing](API_TESTING.md#motion-counts-validation) |
 
 ### Debug Tools
