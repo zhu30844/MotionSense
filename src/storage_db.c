@@ -49,6 +49,12 @@ static int db_open_rw(sqlite3 **out, const char *path, int sync_mode)
         *out = NULL;
         return -1;
     }
+    /* The agent holds a read-only handle on the same files (its own
+     * busy_timeout is 5 s). Without a timeout here a lock held across our
+     * open, e.g. both processes recovering the WAL at boot or an agent
+     * read landing on the CREATE TABLE below, returns SQLITE_BUSY at once,
+     * storage_init fails and the daemon exits for good. */
+    sqlite3_busy_timeout(*out, 5000);
     char *err = NULL;
     sqlite3_exec(*out, "PRAGMA journal_mode=WAL;",     NULL, NULL, &err); sqlite3_free(err); err = NULL;
     if (sync_mode == DB_SYNC_FULL)

@@ -82,6 +82,7 @@ docker run --rm -v "$PWD":/x alpine:latest rm -rf /x/build-output
 | 每次启动一两分钟后时钟快了八小时，而 RTC 始终正确 | rkipc 自带 NTP 客户端（`[network.ntp] enable = 1`，60 s），会把时区加到收到的 UTC 上，再让 busybox 把结果当作 UTC 写回。S99 中的 `RkLunch-stop.sh` 无法阻止它：RkLunch 通过一个在后台运行、先等待 /userdata 的 `post_chk` 启动 rkipc，因此 stop 调用在该进程存在之前就已执行 | 在 oem hook 中移除 rkipc 及其 ini 文件 — `529f3537f6`（SDK） |
 | 在本地午夜到 08:00 之间，状态卡片把昨天显示为最后一次录像，而今天的分段就在卡上 | Go 读取 TZ 和 /etc/localtime，从不读取 /etc/TZ，而镜像中没有 zoneinfo，因此 time.Local 为 UTC，而守护进程用本地时间命名目录。于是今天的目录在排序上超前于 Go 认为的“今天”，被防未来日期的检查丢弃 | agent 将 /etc/TZ 解析为 time.Local — `8a2ee60` |
 | 刚烧录、插着空白卡的板子显示“Failed to load motion data”，连接被直接断开而不是得到响应 | agent 在启动时以 mode=ro 打开 VideoMetadata.db，文件不存在时失败；守护进程只在第一个分段时才创建它，由此产生的 nil *Storage 传到了处理函数中并被解引用 | 首次使用时再连接，文件不存在时返回空日历 — `dceebcc` |
+| 开机后只有 agent 在跑，预览永远转圈，`/api/status` 里 `frameFlow:false`，守护进程日志停在 `sqlite exec: database is locked` → `storage_init failed` | 两个进程开机同时打开 `VideoMetadata.db`，agent 带 5 s busy_timeout，守护进程没有，碰到锁立刻 `SQLITE_BUSY`，退出后无人重启 | 守护进程打开数据库时也设 `sqlite3_busy_timeout(5000)` |
 
 ## 未解之谜
 
