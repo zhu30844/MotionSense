@@ -6,8 +6,8 @@ DAEMON="$BIN_DIR/MotionSense"
 PIDFILE="/var/run/motionsense.pid"
 LOGFILE="/mnt/sdcard/MotionSense/motionsense.log"
 
-# Go agent: HTTP UI/API on :5000, reads frames from the C daemon over
-# /tmp/motionsense.sock. Start order does not matter — it retries the socket
+# Go agent: HTTP UI/API on :80 (:3000 when not root), reads frames from the
+# C daemon over /tmp/motionsense-stream.sock. Start order does not matter — it retries the socket
 # and treats a missing database as non-fatal — but it is started second so
 # its log does not interleave with the camera handover above.
 AGENT="$BIN_DIR/motionsense-agent"
