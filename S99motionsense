@@ -6,6 +6,18 @@ DAEMON="$BIN_DIR/MotionSense"
 PIDFILE="/var/run/motionsense.pid"
 LOGFILE="/mnt/sdcard/MotionSense/motionsense.log"
 
+# Go agent: HTTP UI/API on :5000, reads frames from the C daemon over
+# /tmp/motionsense.sock. Start order does not matter — it retries the socket
+# and treats a missing database as non-fatal — but it is started second so
+# its log does not interleave with the camera handover above.
+AGENT="$BIN_DIR/motionsense-agent"
+AGENT_PIDFILE="/var/run/motionsense-agent.pid"
+AGENT_LOGFILE="/mnt/sdcard/MotionSense/agent.log"
+
+# Seeded to the SD card on first boot; the daemon reads CONFIG, not the seed.
+CONFIG="/mnt/sdcard/MotionSense/config.yaml"
+CONFIG_SEED="/oem/usr/share/MotionSense/config.yaml"
+
 case "$1" in
     start)
         # Hand the camera over from the stock rkipc app: this kills rkipc and
@@ -28,16 +40,32 @@ case "$1" in
         # fails in the shell *before* exec, so MotionSense never starts and logs
         # nothing (this is what silently broke boot autostart when config was absent).
         mkdir -p "$(dirname "$LOGFILE")"
+        # Seed config.yaml on first run. Without it the daemon falls back to
+        # its compiled-in defaults, which works but leaves nothing to edit.
+        # Never overwrite: this is the copy the user tunes.
+        if [ ! -f "$CONFIG" ] && [ -f "$CONFIG_SEED" ]; then
+            cp "$CONFIG_SEED" "$CONFIG"
+        fi
+        # LD_LIBRARY_PATH is required despite the binary's RPATH. The RPATH
+        # ($ORIGIN/../lib) does resolve the daemon's own NEEDED entries, but
+        # librockit.so in turn needs librockchip_mpp.so.1 and librga.so, and
+        # resolving *its* dependencies does not consult the executable's
+        # RPATH, so those come up "not found" and the daemon dies at exec.
         start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c "exec env LD_LIBRARY_PATH=$LIB_DIR $DAEMON 2>>$LOGFILE"
+        if [ -x "$AGENT" ]; then
+            start-stop-daemon -S -b -m -p "$AGENT_PIDFILE" -x /bin/sh -- -c "exec $AGENT >>$AGENT_LOGFILE 2>&1"
+        fi
         ;;
     stop)
+        start-stop-daemon -K -q -p "$AGENT_PIDFILE" && rm -f "$AGENT_PIDFILE"
         start-stop-daemon -K -p "$PIDFILE" && rm -f "$PIDFILE"
         ;;
     restart)
         $0 stop; sleep 1; $0 start
         ;;
     status)
-        start-stop-daemon -K -t -q -p "$PIDFILE" && echo "running" || echo "stopped"
+        start-stop-daemon -K -t -q -p "$PIDFILE" && echo "MotionSense: running" || echo "MotionSense: stopped"
+        start-stop-daemon -K -t -q -p "$AGENT_PIDFILE" && echo "agent: running" || echo "agent: stopped"
         ;;
     *)
         echo "Usage: $0 {start|stop|restart|status}"
