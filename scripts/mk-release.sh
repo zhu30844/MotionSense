@@ -74,13 +74,23 @@ done
 # build.sh packages whatever is in output/out/app_out; when build_app fails
 # part-way that directory is empty and the firmware step still "succeeds".
 # Compare the staged oem tree against the binaries the app build produced.
+# build_firmware strips everything in oem, and whether the copy in
+# project/app/out was stripped too depends on the app Makefile's strip macro
+# having run, so compare both as-is and after stripping the built one.
+STRIP=$(ls "$SDK"/tools/linux/toolchain/*/bin/*-linux-*-strip 2>/dev/null | head -1)
+[ -x "$STRIP" ] || die "cross strip not found under $SDK/tools/linux/toolchain"
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+same_binary() {  # same_binary <built> <staged>
+    cmp -s "$1" "$2" && return 0
+    cp "$1" "$TMP/b" && "$STRIP" "$TMP/b" 2>/dev/null && cmp -s "$TMP/b" "$2"
+}
 for b in MotionSense motionsense-agent; do
     built=$SDK/project/app/out/bin/$b
     staged=$SDK/output/out/oem/usr/bin/$b
     [ -s "$built" ]  || die "$built missing: the app stage did not run"
     [ -s "$staged" ] || die "$staged missing: oem was packaged without the app"
-    [ "$(md5sum < "$built")" = "$(md5sum < "$staged")" ] \
-        || die "$b in output/out/oem differs from project/app/out: stale oem.img"
+    same_binary "$built" "$staged" \
+        || die "$b in output/out/oem is not the one in project/app/out (even after strip): stale oem.img"
 done
 [ "$IMG_DIR/oem.img" -nt "$SDK/output/out/oem/usr/bin/MotionSense" ] \
     || die "oem.img is older than the staged MotionSense binary: re-run ./build.sh firmware"
