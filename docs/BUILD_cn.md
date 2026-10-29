@@ -445,6 +445,23 @@ cp sysdrv/tools/board/buildroot/*_defconfig \
 
 ---
 
+## 发布
+
+`scripts/mk-release.sh` 把一次已完成的 SDK 构建装配成发布包，布局与 v1.0.0 相同：`images/` 下的全部镜像、`LICENSE`、`THIRD-PARTY.md`、`licences/`、填好两个仓库精确 revision 的 `SOURCES.md`、一份 `README.md`，以及覆盖所有文件的 `SHA256SUMS`。它不做构建；先跑 `./build.sh`。
+
+```bash
+project/app/motionsense/scripts/mk-release.sh --version v1.1.0
+# -> output/release/MotionSense-v1.1.0-luckfox-pico-pro-max-img.zip
+```
+
+板型默认取 `.BoardConfig.mk` 指向的目录，并与 `--board` 核对，所以不会把一块板的镜像装进另一块板的包里。文件名里的板型简称来自脚本内的 `slug_for()`，新板型在那里加一行。版本号默认取 HEAD 上的 tag，否则是 `dev-<短 sha>`。
+
+脚本还会核对 `project/app/out/bin` 里的两个二进制与 `output/out/oem/usr/bin` 里的逐字节一致、`oem.img` 不早于它们。这是针对一类具体的失败：build_app 中途失败（例如没有 go）时，`./build.sh firmware` 会把空的 `app_out` 打进 oem 并报成功，刷出来的板子上没有 MotionSense。
+
+SDK 仓库的 `.github/workflows/release.yml` 在推送 `motionsense-vX.Y.Z` tag 时跑同样的流程：在 `.devcontainer/Dockerfile` 的镜像里构建、缓存 `dl/` 和 `.buildroot-ccache`、调用本脚本，然后以 `vX.Y.Z` 在 MotionSense 仓库发布，tag 打在 SDK 该提交所指向的子模块 commit 上。需要在 SDK 仓库配置 secret `MOTIONSENSE_RELEASE_TOKEN`（只对 MotionSense 仓库有 Contents 读写权限的 fine-grained token）。`workflow_dispatch` 只构建不发布。多板型时在 workflow 的 matrix 里各加一行 `board` / `slug`。
+
+---
+
 ## 已验证
 
 用本目录树构建的完整镜像已烧录到 Pico Pro Max 上并运行：开发板以 `rv1106g-motionsense.dts` 启动，SD 卡以读写方式自动挂载，两个守护进程自动启动，ISP 以 2304x1296 初始化传感器，HLS 分段和按天生成的 `EventLogs.db` 写入 `DCIM`，agent 连接到帧 socket，`/api/stream` 以每帧 44.7KB 提供 15.0 fps。

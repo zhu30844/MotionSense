@@ -628,6 +628,23 @@ cp sysdrv/tools/board/buildroot/*_defconfig \
 
 ---
 
+## Releasing
+
+`scripts/mk-release.sh` assembles a finished SDK build into the release bundle, laid out as v1.0.0 was: every image under `images/`, `LICENSE`, `THIRD-PARTY.md`, `licences/`, a `SOURCES.md` with both repositories' exact revisions filled in, a `README.md`, and a `SHA256SUMS` over all of it. It does not build; run `./build.sh` first.
+
+```bash
+project/app/motionsense/scripts/mk-release.sh --version v1.1.0
+# -> output/release/MotionSense-v1.1.0-luckfox-pico-pro-max-img.zip
+```
+
+The board defaults to whatever `.BoardConfig.mk` points at and is checked against `--board`, so one board's images cannot end up in another's bundle. The board slug in the file name comes from `slug_for()` in the script; a new board is one more line there. The version defaults to the tag on HEAD, else `dev-<short sha>`.
+
+The script also checks that the two binaries in `project/app/out/bin` are byte-identical to those in `output/out/oem/usr/bin` and that `oem.img` is not older than them. That targets one specific failure: when build_app dies part-way (no `go`, say), `./build.sh firmware` packages the empty `app_out` into oem and reports success, and the flashed board has no MotionSense.
+
+The SDK repository's `.github/workflows/release.yml` runs the same steps when a `motionsense-vX.Y.Z` tag is pushed: build inside the `.devcontainer/Dockerfile` image, cache `dl/` and `.buildroot-ccache`, call this script, then publish as `vX.Y.Z` on the MotionSense repository with the tag placed on the submodule commit that SDK commit points at. It needs the SDK repository secret `MOTIONSENSE_RELEASE_TOKEN`, a fine-grained token with Contents read/write on MotionSense only. `workflow_dispatch` builds without publishing. For more boards, add a `board` / `slug` line to the workflow matrix.
+
+---
+
 ## Verified
 
 A full image built from this tree has been flashed to a Pico Pro Max and run:

@@ -1,0 +1,24 @@
+# MotionSense @VERSION@
+
+Firmware for the Luckfox Pico Pro Max (RV1106, SPI NAND boot), built on
+@BUILD_DATE@ from the board configuration `@BOARD_CFG@`.
+
+`images/update.img` is the whole flash. Put the board in loader mode and
+write it with Rockchip's upgrade tool:
+
+```
+adb reboot loader
+upgrade_tool uf images/update.img
+```
+
+The other files in `images/` are the individual partitions that make up
+`update.img`, for anyone flashing them one at a time. Recordings, the
+database and `config.yaml` live on the SD card and are not touched by a
+flash.
+
+What the device does, how to configure it and what it needs from the SD
+card: https://github.com/zhu30844/MotionSense
+
+`SOURCES.md` names the exact revisions this image was built from.
+`THIRD-PARTY.md` and `licences/` carry the terms of everything in it.
+`SHA256SUMS` covers every file in this bundle.

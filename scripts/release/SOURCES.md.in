@@ -1,0 +1,48 @@
+# Corresponding source
+
+This image is built from public sources. Everything below is what went into
+`update.img`, with the exact revision each part came from.
+
+## Built from
+
+| Part | Repository | Revision |
+|---|---|---|
+| MotionSense (the daemon, the agent, the board configuration) | https://github.com/zhu30844/MotionSense | `@APP_REV@` |
+| SDK fork carrying the board configuration and the device tree | https://github.com/zhu30844/luckfox-pico-sdk | `@SDK_REV@` |
+| Upstream SDK the fork is based on | https://github.com/LuckfoxTECH/luckfox-pico | see the fork's history |
+
+The SDK fork carries MotionSense as a submodule at
+`project/app/motionsense`, so the first repository is reachable from the
+second at the revision this image was built with. The board configuration is
+`@BOARD_CFG@`.
+
+## Components under a licence that requires source
+
+The image contains a Linux kernel (5.10.160), U-Boot, BusyBox and a Buildroot
+userspace, all under the GPL or LGPL, and all built from the SDK fork above at
+the revision named. That repository is public and will remain so; its
+`sysdrv/source/` holds the kernel and U-Boot trees as shipped, and
+`sysdrv/tools/board/buildroot/` holds the Buildroot configuration used.
+
+The Buildroot package set is generated from
+`project/app/motionsense/buildroot-packages.fragment` by
+`project/app/motionsense/scripts/gen-buildroot-defconfig.sh`; the generated
+defconfig is `sysdrv/tools/board/buildroot/motionsense_defconfig`.
+
+## Rockchip media libraries
+
+`librockit`, `librkaiq`, `librockchip_mpp` and `librga` are Rockchip's
+prebuilt binaries, taken from the SDK's `media/` directory. Their terms travel
+in the headers shipped beside them: `librockit` and the ISP headers carry
+`GPL-2.0 WITH Linux-syscall-note OR Apache 2.0`, and the others reproduce the
+Apache-2.0 notice in full. A copy of Apache-2.0 is in `licences/`.
+
+These are Rockchip-internal builds rather than the public upstream ones — the
+commit `media/mpp` records is not present in `rockchip-linux/mpp`, nor
+`media/rga`'s in `airockchip/librga` — so the terms that apply are the ones in
+the headers distributed with the binaries.
+
+## Everything else
+
+`THIRD-PARTY.md` inventories the rest, including the OSD sources (3-clause
+BSD, text in `licences/`), the DejaVu font and Video.js.
