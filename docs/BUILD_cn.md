@@ -460,6 +460,14 @@ project/app/motionsense/scripts/mk-release.sh --version v1.1.0
 
 SDK 仓库的 `.github/workflows/release.yml` 在推送 `motionsense-vX.Y.Z` tag 时跑同样的流程：在 `.devcontainer/Dockerfile` 的镜像里构建、缓存 `dl/` 和 `.buildroot-ccache`、调用本脚本，然后以 `vX.Y.Z` 在 MotionSense 仓库发布，tag 打在 SDK 该提交所指向的子模块 commit 上。需要在 SDK 仓库配置 secret `MOTIONSENSE_RELEASE_TOKEN`（只对 MotionSense 仓库有 Contents 读写权限的 fine-grained token）。`workflow_dispatch` 只构建不发布。多板型时在 workflow 的 matrix 里各加一行 `board` / `slug`。
 
+发布说明按下面的规则决定：
+
+- 本仓库里存在 `docs/releases/vX.Y.Z.md`（以 SDK 所指向的子模块 commit 为准），就用它做正文，直接发布。想提前写好的版本走这条路，说明和代码一起进仓库。
+- 没有这个文件、且是补丁版（`vX.Y.Z`，Z 大于 0）：用 GitHub 自动生成的改动列表，直接发布。
+- 没有这个文件、且是小版本或大版本（`vX.Y.0`）：资产照常上传，但建成 **draft**，在 GitHub 上写完说明再点 Publish。draft 不建 tag，tag 在 Publish 时打在同一个 commit 上。
+
+三种情况正文末尾都会附上两个仓库的精确 commit。已发布的版本都在 `docs/releases/` 下留一份，内容与 GitHub 上的正文一致。
+
 ---
 
 ## 已验证

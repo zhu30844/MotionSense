@@ -643,6 +643,14 @@ The script also checks that the two binaries in `project/app/out/bin` are byte-i
 
 The SDK repository's `.github/workflows/release.yml` runs the same steps when a `motionsense-vX.Y.Z` tag is pushed: build inside the `.devcontainer/Dockerfile` image, cache `dl/` and `.buildroot-ccache`, call this script, then publish as `vX.Y.Z` on the MotionSense repository with the tag placed on the submodule commit that SDK commit points at. It needs the SDK repository secret `MOTIONSENSE_RELEASE_TOKEN`, a fine-grained token with Contents read/write on MotionSense only. `workflow_dispatch` builds without publishing. For more boards, add a `board` / `slug` line to the workflow matrix.
 
+The release notes are chosen as follows:
+
+- If this repository has `docs/releases/vX.Y.Z.md` (at the submodule commit the SDK points to), it is the body and the release is published at once. Versions whose notes are written ahead of time go this way, with the notes reviewed alongside the code.
+- No such file and a patch version (`vX.Y.Z`, Z above 0): GitHub's generated change list, published at once.
+- No such file and a minor or major version (`vX.Y.0`): the assets are uploaded but the release is created as a **draft**, to be written up on GitHub and published by hand. A draft creates no tag; the tag is placed on the same commit when it is published.
+
+In every case the body ends with the exact commits of both repositories. Every published version keeps a copy of its notes under `docs/releases/`, matching the text on GitHub.
+
 ---
 
 ## Verified
