@@ -46,6 +46,7 @@ done
 slug_for() {
     case "$1" in
         BoardConfig_MotionSense_Pro_Max) echo luckfox-pico-pro-max ;;
+        BoardConfig_MotionSense_Ultra)   echo luckfox-pico-ultra ;;
         *) echo "$1" | sed 's/^BoardConfig_//' | tr 'A-Z_' 'a-z-' ;;
     esac
 }
