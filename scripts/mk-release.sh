@@ -45,7 +45,7 @@ done
 # listed falls back to its directory name.
 slug_for() {
     case "$1" in
-        BoardConfig_MotionSense) echo luckfox-pico-pro-max ;;
+        BoardConfig_MotionSense_Pro_Max) echo luckfox-pico-pro-max ;;
         *) echo "$1" | sed 's/^BoardConfig_//' | tr 'A-Z_' 'a-z-' ;;
     esac
 }

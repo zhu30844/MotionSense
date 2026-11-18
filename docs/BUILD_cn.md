@@ -370,7 +370,7 @@ mmc1: new high speed SDXC card at address 59b4
 产品专用配置位于 SDK fork 中的独立目录，不改动上游 Luckfox 文件：
 
 ```
-project/cfg/BoardConfig_MotionSense/
+project/cfg/BoardConfig_MotionSense_Pro_Max/
 ├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense_Pro_Max-IPC.mk
 ├── motionsense-oem-pre.sh                    oem trimming for this board only
 ├── luckfox-userdata-pre.sh          -> symlink into BoardConfig_IPC/

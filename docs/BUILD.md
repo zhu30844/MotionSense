@@ -528,7 +528,7 @@ Product-specific configuration lives in its own directory in the SDK fork,
 leaving upstream Luckfox files untouched:
 
 ```
-project/cfg/BoardConfig_MotionSense/
+project/cfg/BoardConfig_MotionSense_Pro_Max/
 ├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense_Pro_Max-IPC.mk
 ├── motionsense-oem-pre.sh                    oem trimming for this board only
 ├── luckfox-userdata-pre.sh          -> symlink into BoardConfig_IPC/
