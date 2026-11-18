@@ -482,7 +482,7 @@ mmc_host mmc1: Bus speed (slot 0) = 300000Hz
 mmc1: new high speed SDXC card at address 59b4
 ```
 
-`rv1106g-motionsense.dts` therefore omits the vendor's `non-removable`. With
+`rv1106g-motionsense-pro-max.dts` therefore omits the vendor's `non-removable`. With
 that property set, the core scans once at probe, ignores the card-detect pin
 and never retries, making a boot-time failure permanent; reseating the card
 raises no event.
@@ -529,7 +529,7 @@ leaving upstream Luckfox files untouched:
 
 ```
 project/cfg/BoardConfig_MotionSense/
-├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense-IPC.mk
+├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense_Pro_Max-IPC.mk
 ├── motionsense-oem-pre.sh                    oem trimming for this board only
 ├── luckfox-userdata-pre.sh          -> symlink into BoardConfig_IPC/
 └── overlay/
@@ -538,7 +538,7 @@ project/cfg/BoardConfig_MotionSense/
     ├── overlay-luckfox-buildroot-shadow -> symlink
     └── overlay-motionsense/etc/init.d/S99motionsense
 
-sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense.dts
+sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense-pro-max.dts
 sysdrv/tools/board/buildroot/motionsense_defconfig
 ```
 
@@ -573,7 +573,7 @@ headroom at 11%; check it after adding kernel drivers.
 
 ### Device tree
 
-`rv1106g-motionsense.dts` includes the vendor `rv1106-luckfox-pico-pro-max-ipc.dtsi`
+`rv1106g-motionsense-pro-max.dts` includes the vendor `rv1106-luckfox-pico-pro-max-ipc.dtsi`
 and overrides only what differs, so the vendor dts is never edited. Adding a
 `.dts` needs no Makefile change: the kernel builds it via `make <name>.img`
 through the generic `%.dtb` pattern rule, and none of the vendor luckfox dts
@@ -656,7 +656,7 @@ In every case the body ends with the exact commits of both repositories. Every p
 ## Verified
 
 A full image built from this tree has been flashed to a Pico Pro Max and run:
-the board comes up on `rv1106g-motionsense.dts`, the SD card auto-mounts
+the board comes up on `rv1106g-motionsense-pro-max.dts`, the SD card auto-mounts
 read-write, both daemons autostart, the ISP initialises the sensor at
 2304x1296, HLS segments and the per-day `EventLogs.db` land in `DCIM`, the
 agent connects to the frame socket, and `/api/stream` delivers 15.0 fps at

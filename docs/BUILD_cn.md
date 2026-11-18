@@ -336,7 +336,7 @@ mmc_host mmc1: Bus speed (slot 0) = 300000Hz
 mmc1: new high speed SDXC card at address 59b4
 ```
 
-因此 `rv1106g-motionsense.dts` 去掉了 vendor 的 `non-removable`。设置该属性时，内核核心只在 probe 时扫描一次，忽略卡检测引脚且从不重试，使启动时的失败成为永久性的；重新插拔卡也不会产生任何事件。
+因此 `rv1106g-motionsense-pro-max.dts` 去掉了 vendor 的 `non-removable`。设置该属性时，内核核心只在 probe 时扫描一次，忽略卡检测引脚且从不重试，使启动时的失败成为永久性的；重新插拔卡也不会产生任何事件。
 
 总线速度上限为 SD High Speed，50MHz——`no-1-8-v` 排除了需要 1.8V 信号的 UHS 模式。在一张 119GiB SDXC 卡上测得：
 
@@ -371,7 +371,7 @@ mmc1: new high speed SDXC card at address 59b4
 
 ```
 project/cfg/BoardConfig_MotionSense/
-├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense-IPC.mk
+├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense_Pro_Max-IPC.mk
 ├── motionsense-oem-pre.sh                    oem trimming for this board only
 ├── luckfox-userdata-pre.sh          -> symlink into BoardConfig_IPC/
 └── overlay/
@@ -380,7 +380,7 @@ project/cfg/BoardConfig_MotionSense/
     ├── overlay-luckfox-buildroot-shadow -> symlink
     └── overlay-motionsense/etc/init.d/S99motionsense
 
-sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense.dts
+sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense-pro-max.dts
 sysdrv/tools/board/buildroot/motionsense_defconfig
 ```
 
@@ -407,7 +407,7 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 
 ### 设备树
 
-`rv1106g-motionsense.dts` include vendor 的 `rv1106-luckfox-pico-pro-max-ipc.dtsi`，只覆盖不同之处，因此从不修改 vendor dts。添加 `.dts` 无需修改 Makefile：内核通过通用的 `%.dtb` 模式规则，经 `make <name>.img` 构建它，而 vendor 的 luckfox dts 文件也都没有在 `arch/arm/boot/dts/Makefile` 中注册。
+`rv1106g-motionsense-pro-max.dts` include vendor 的 `rv1106-luckfox-pico-pro-max-ipc.dtsi`，只覆盖不同之处，因此从不修改 vendor dts。添加 `.dts` 无需修改 Makefile：内核通过通用的 `%.dtb` 模式规则，经 `make <name>.img` 构建它，而 vendor 的 luckfox dts 文件也都没有在 `arch/arm/boot/dts/Makefile` 中注册。
 
 它还修正了 vendor dts 的问题：其中 sdmmc 节点把属性拼写成 `max-freqency`；该拼写会被忽略，控制器从 `rv1106.dtsi` 继承 `max-frequency = <200000000>`。
 
@@ -472,7 +472,7 @@ SDK 仓库的 `.github/workflows/release.yml` 在推送 `motionsense-vX.Y.Z` tag
 
 ## 已验证
 
-用本目录树构建的完整镜像已烧录到 Pico Pro Max 上并运行：开发板以 `rv1106g-motionsense.dts` 启动，SD 卡以读写方式自动挂载，两个守护进程自动启动，ISP 以 2304x1296 初始化传感器，HLS 分段和按天生成的 `EventLogs.db` 写入 `DCIM`，agent 连接到帧 socket，`/api/stream` 以每帧 44.7KB 提供 15.0 fps。
+用本目录树构建的完整镜像已烧录到 Pico Pro Max 上并运行：开发板以 `rv1106g-motionsense-pro-max.dts` 启动，SD 卡以读写方式自动挂载，两个守护进程自动启动，ISP 以 2304x1296 初始化传感器，HLS 分段和按天生成的 `EventLogs.db` 写入 `DCIM`，agent 连接到帧 socket，`/api/stream` 以每帧 44.7KB 提供 15.0 fps。
 
 ## 许可
 
