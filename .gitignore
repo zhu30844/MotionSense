@@ -1,11 +1,3 @@
-# ---------------------------------------------------------------------------
-# MotionSense .gitignore
-#
-# NOTE: the cross-toolchain (tools/linux/toolchain), the vendored .so/.a under
-# vendor/, and 3rdparty/ sources are INTENTIONALLY committed (a self-contained
-# SDK build references them directly). Do not ignore them.
-# ---------------------------------------------------------------------------
-
 # --- C / CMake build output ---
 /build/
 /install/
@@ -45,11 +37,6 @@ Thumbs.db
 # Provided by the Luckfox SDK checkout this tree lives in; see CMakeLists.txt.
 /tools/
 
-# --- Rockchip prebuilt media libraries ---
-# Copyright Rockchip, no redistribution grant; populate with
-# scripts/sync-vendor.sh from an SDK checkout. Only needed for standalone
-# builds; the SDK app build uses MS_RK_MEDIA_DIR instead.
-/vendor/
-# The CMake glue in there is ours, not Rockchip's, and add_subdirectory needs
-# it present before sync-vendor.sh has run.
-!/vendor/*/CMakeLists.txt
+# --- vendor/: what scripts/sync-vendor.sh copies in ---
+/vendor/*/include/
+/vendor/*/lib/

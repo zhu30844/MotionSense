@@ -1,6 +1,6 @@
 # Third-party components
 
-Last edited: 2026-09-05
+Last edited: 2026-11-21
 
 `../LICENSE` (MIT) covers the code written for this project. This file lists
 everything else in the tree and the terms it carries. Paths are relative to
@@ -22,6 +22,7 @@ the repository root, not to this directory.
 | `3rdparty/osd/*.c`, `*.h` | Rockchip Electronics Co., Ltd. | 3-clause BSD — `3rdparty/osd/LICENSE` |
 | `3rdparty/osd/DejaVuSansMono.ttf` | Bitstream, Inc.; DejaVu and Arev authors | Bitstream Vera + Arev — `3rdparty/osd/DejaVuSansMono.LICENSE` |
 | `agent/static/js/video-js-8.20.0/` | Brightcove / Video.js authors | Apache-2.0 |
+| `vendor/pcsim/sample/` | Blender Foundation, www.bigbuckbunny.org | CC BY 3.0. Ten seconds of Big Buck Bunny, re-encoded by `gen.sh`. |
 
 The OSD sources reference their license file from each header; that file is
 `3rdparty/osd/LICENSE`.
@@ -34,7 +35,7 @@ draws an ASCII timestamp only.
 | Path | Owner | How it gets there |
 |---|---|---|
 | `3rdparty/media-server/` | ireader | MIT. Submodule pinned at `ea53ac6`. `3rdparty/media-server-local/hls-media.c` is one file of it carrying a local fix, under the same terms. |
-| `vendor/` | Rockchip Electronics Co., Ltd. | Not in this repository. Created by `scripts/sync-vendor.sh`, which extracts it from a Luckfox SDK checkout. |
+| `vendor/*/include/`, `vendor/*/lib/` | Rockchip Electronics Co., Ltd. | Not in this repository. Created by `scripts/sync-vendor.sh`, which extracts it from a Luckfox SDK checkout. |
 
 ## vendor/
 

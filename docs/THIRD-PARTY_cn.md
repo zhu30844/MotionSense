@@ -2,7 +2,7 @@
 
 [English](THIRD-PARTY.md) | 简体中文
 
-最后编辑：2026-10-24
+最后编辑：2026-11-21
 
 `../LICENSE`（MIT）适用于为本项目编写的代码。本文列出源码树中的其他所有内容及其所附带的条款。路径相对于仓库根目录，而不是本目录。
 
@@ -22,6 +22,7 @@
 | `3rdparty/osd/*.c`、`*.h` | Rockchip Electronics Co., Ltd. | 3-clause BSD — `3rdparty/osd/LICENSE` |
 | `3rdparty/osd/DejaVuSansMono.ttf` | Bitstream, Inc.; DejaVu and Arev authors | Bitstream Vera + Arev — `3rdparty/osd/DejaVuSansMono.LICENSE` |
 | `agent/static/js/video-js-8.20.0/` | Brightcove / Video.js authors | Apache-2.0 |
+| `vendor/pcsim/sample/` | Blender Foundation, www.bigbuckbunny.org | CC BY 3.0。Big Buck Bunny 的十秒片段，由 `gen.sh` 重新编码。 |
 
 OSD 源文件在每个头部都引用了其许可证文件；该文件即 `3rdparty/osd/LICENSE`。
 
@@ -32,7 +33,7 @@ OSD 字体为 DejaVu Sans Mono，替换了 SDK 自带的字体。OSD 只绘制 A
 | 路径 | 所有者 | 获取方式 |
 |---|---|---|
 | `3rdparty/media-server/` | ireader | MIT。子模块，固定在 `ea53ac6`。`3rdparty/media-server-local/hls-media.c` 是其中的一个文件，带有一处本地修复，适用相同条款。 |
-| `vendor/` | Rockchip Electronics Co., Ltd. | 不在本仓库中。由 `scripts/sync-vendor.sh` 创建，该脚本从 Luckfox SDK 检出目录中提取它。 |
+| `vendor/*/include/`、`vendor/*/lib/` | Rockchip Electronics Co., Ltd. | 不在本仓库中。由 `scripts/sync-vendor.sh` 创建，该脚本从 Luckfox SDK 检出目录中提取它。 |
 
 ## vendor/
 

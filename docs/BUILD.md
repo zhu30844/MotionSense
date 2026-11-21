@@ -1,6 +1,6 @@
 # Building and installing MotionSense
 
-Last edited: 2026-09-05
+Last edited: 2026-11-21
 
 MotionSense targets the Luckfox Pico Pro Max (Rockchip RV1106, SPI NAND).
 It is built as an application inside the Luckfox SDK, and lives at
@@ -266,7 +266,7 @@ The toolchain is resolved in this order: an explicit `-DCMAKE_C_COMPILER`
 `../../../tools/linux/toolchain/...` relative to this tree's place inside the
 SDK. It is no longer vendored here.
 
-A standalone build also needs `vendor/`, which is not in the repository — see
+A standalone build also needs Rockchip's libraries under `vendor/`, which are not in the repository — see
 *Rockchip libraries* below. Populate it once with:
 
 ```bash
@@ -327,7 +327,7 @@ Selected by `MS_RK_MEDIA_DIR`: set — which the SDK `Makefile` does — the app
 builds against `output/out/media_out`, tracking what the SDK just built. Unset,
 it falls back to `vendor/`.
 
-`vendor/` is not in the repository. `scripts/sync-vendor.sh` creates it,
+The Rockchip libraries under `vendor/` are not in the repository. `scripts/sync-vendor.sh` copies them in,
 extracting the libraries and headers from an SDK checkout. It reads `media/`,
 where the SDK ships them as source, so a plain SDK clone is enough and no SDK
 build is required.
