@@ -1,5 +1,6 @@
 // System headers
 #include <errno.h>
+#include <iconv.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -31,7 +32,6 @@
 // From Rockchip example 'project'
 #include "font_factory.h"
 #include "osd_common.h"
-#include "iconv.h"
 
 // For socket communication with main.c
 #include <arpa/inet.h>
