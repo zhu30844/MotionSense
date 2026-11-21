@@ -58,16 +58,22 @@ ms_import_syslib(ms_cjson    cjson)
 ms_import_syslib(ms_iconv    iconv)
 ms_import_syslib(ms_freetype freetype "${MS_SYSROOT}/usr/include/freetype2")
 
-# The shared libfreetype needs libz and libbz2, which the vendored static build
-# did not. Declaring them here rather than relying on some other -L on the link
-# line happening to supply them: the SDK app build did resolve them by accident,
-# through the media_out library directory the Rockchip targets bring in, while a
-# standalone build failed with undefined references to inflateEnd and
-# BZ2_bzDecompressInit.
-ms_import_syslib(ms_z    z)
-ms_import_syslib(ms_bz2  bz2)
-set_property(TARGET ms_freetype APPEND PROPERTY
-             INTERFACE_LINK_LIBRARIES ms_z ms_bz2)
+# The shared libfreetype needs libz, which the vendored static build did not.
+# Declaring it here rather than relying on some other -L on the link line
+# happening to supply it: the SDK app build did resolve it by accident, through
+# the media_out library directory the Rockchip targets bring in, while a
+# standalone build failed with undefined references to inflateEnd.
+ms_import_syslib(ms_z z)
+set_property(TARGET ms_freetype APPEND PROPERTY INTERFACE_LINK_LIBRARIES ms_z)
+
+# freetype links libbz2 only when buildroot has bzip2, which no package of
+# ours selects.
+find_library(ms_bz2_LIB NAMES bz2
+             PATHS "${MS_SYSROOT}/usr/lib" "${MS_SYSROOT}/lib" NO_DEFAULT_PATH)
+if(ms_bz2_LIB)
+    ms_import_syslib(ms_bz2 bz2)
+    set_property(TARGET ms_freetype APPEND PROPERTY INTERFACE_LINK_LIBRARIES ms_bz2)
+endif()
 
 add_library(sqlite3::sqlite3   ALIAS ms_sqlite3)
 add_library(cjson::cjson       ALIAS ms_cjson)

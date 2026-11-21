@@ -27,6 +27,44 @@ BR2_PACKAGE_CJSON=y     # libcjson.so.1    -> cjson::cjson
 # network time source often enough to be worth that.
 # BR2_PACKAGE_NTP is not set
 
+# No Python: nothing in the image runs it, and it was the largest thing in
+# the rootfs. The libraries above do not depend on it.
+# BR2_PACKAGE_PYTHON3 is not set
+# BR2_PACKAGE_PYTHON3_SSL is not set
+# BR2_PACKAGE_PYTHON_AIOHTTP is not set
+# BR2_PACKAGE_PYTHON_CLICK is not set
+# BR2_PACKAGE_PYTHON_ITSDANGEROUS is not set
+# BR2_PACKAGE_PYTHON_JINJA2 is not set
+# BR2_PACKAGE_PYTHON_PERIPHERY is not set
+# BR2_PACKAGE_PYTHON_PILLOW is not set
+# BR2_PACKAGE_PYTHON_SERIAL is not set
+# BR2_PACKAGE_PYTHON_SETUPTOOLS is not set
+# BR2_PACKAGE_PYTHON_SMBUS_CFFI is not set
+# BR2_PACKAGE_PYTHON_SPIDEV is not set
+# BR2_PACKAGE_PYTHON_WERKZEUG is not set
+
+# Evaluation-board tools nothing here uses. libv4l stays: RkLunch.sh needs its
+# media-ctl, and it is what brings libiconv in.
+# BR2_PACKAGE_GNUTLS is not set
+# BR2_PACKAGE_IPTABLES is not set
+# BR2_PACKAGE_IPTABLES_BPF_NFSYNPROXY is not set
+# BR2_PACKAGE_IPTABLES_NFTABLES is not set
+# BR2_PACKAGE_P7ZIP is not set
+# BR2_PACKAGE_ZIP is not set
+# BR2_PACKAGE_UNZIP is not set
+# BR2_PACKAGE_BMON is not set
+# BR2_PACKAGE_PCRE2_16 is not set
+# BR2_PACKAGE_PCRE2_32 is not set
+# BR2_PACKAGE_RSYNC is not set
+# BR2_PACKAGE_LIBRSYNC is not set
+# BR2_PACKAGE_IPERF is not set
+# BR2_PACKAGE_IPERF3 is not set
+# BR2_PACKAGE_BASH_LOADABLE_EXAMPLES is not set
+# BR2_PACKAGE_SOCAT is not set
+# BR2_PACKAGE_LRZSZ is not set
+# BR2_PACKAGE_EVTEST is not set
+# BR2_PACKAGE_TIME is not set
+
 # Not listed, but relied on and already enabled in the vendor defconfig:
 #   BR2_PACKAGE_FREETYPE   libfreetype.so.6  -> freetype::freetype
 #   libiconv arrives as a dependency of other packages
