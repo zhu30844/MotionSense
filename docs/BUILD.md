@@ -1,6 +1,6 @@
 # Building and installing MotionSense
 
-Last edited: 2026-11-21
+Last edited: 2026-11-22
 
 MotionSense targets the Luckfox Pico Pro Max (Rockchip RV1106, SPI NAND).
 It is built as an application inside the Luckfox SDK, and lives at
@@ -307,8 +307,8 @@ the socket reader retries.
 
 `deploy.sh` builds and pushes the binary without reflashing. It pushes no
 libraries, so the device must already carry them. Images built before the
-switch to buildroot-provided libraries have no `libsqlite3.so.0`,
-`libyaml-0.so.2` or `libcjson.so.1`, and the daemon will not start. Flash `update.img` once on
+switch to buildroot-provided libraries have no `libsqlite3.so.0` or
+`libcjson.so.1`, and the daemon will not start. Flash `update.img` once on
 such a device, after which `deploy.sh` works.
 
 ---
@@ -318,7 +318,7 @@ such a device, after which `deploy.sh` works.
 | Dependency | Source | Ships in |
 |---|---|---|
 | `librockit`, `librkaiq`, `librockchip_mpp`, `librga` | `output/out/media_out` (SDK build) | `/oem/usr/lib` |
-| `libsqlite3`, `libyaml`, `libcjson`, `libfreetype`, `libiconv` | buildroot sysroot | `/usr/lib` (rootfs) |
+| `libsqlite3`, `libcjson`, `libfreetype`, `libiconv` | buildroot sysroot | `/usr/lib` (rootfs) |
 | `libhls`/`libmpeg` (`3rdparty/media-server`, submodule), `libosd` (`3rdparty/osd`) | built from source, static | linked in |
 
 ### Rockchip libraries
@@ -339,7 +339,7 @@ The script copies the four `.so` files and their headers. It does not copy the
 
 The distro libraries come from `cmake/SystemLibs.cmake`, which imports
 them from the buildroot sysroot under the same CMake target names the
-vendored copies used (`sqlite3::sqlite3`, `yaml::yaml`, `freetype::freetype`,
+vendored copies used (`sqlite3::sqlite3`, `freetype::freetype`,
 `iconv::iconv`), plus `cjson::cjson`.
 
 ### media-server
@@ -352,8 +352,8 @@ files.
 
 One file is not taken as-is. `hls_media_input()` asserts DTS continuity in a
 way that does not allow `duration == 0` — "cut a segment on every keyframe",
-which is what `storage.c` uses and what `config.yaml` ships as
-`hls_duration_s: 0`. The patched copy lives in `3rdparty/media-server-local`
+which is what `storage.c` uses and what the default `hls_duration_s` of 0
+selects. The patched copy lives in `3rdparty/media-server-local`
 and `cmake/MediaServer.cmake` compiles it in place of the submodule's, so the
 submodule never shows up dirty. See the README there for how to refresh it
 after a version bump. Release builds define `NDEBUG` and compile the assert
@@ -396,17 +396,17 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 /oem/usr/bin/MotionSense                     the C daemon
 /oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
 /oem/usr/share/MotionSense/fonts/            OSD font
-/oem/usr/share/MotionSense/config.yaml       seed copy
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (from the board overlay)
 /etc/motionsense/board.json                  board file (from the board overlay)
-/mnt/sdcard/MotionSense/                     log, live config
+/mnt/sdcard/MotionSense/config.json          configuration
+/mnt/sdcard/MotionSense/motionsense.log      stderr of the vendor libraries
 /mnt/sdcard/MotionSense/agent.log            agent log
 /mnt/sdcard/DCIM/                            recordings
 ```
 
-The font and the seed configuration are found relative to the binary
-(`../share/MotionSense/`), not by absolute path.
+The font is found relative to the binary (`../share/MotionSense/fonts/`), not
+by absolute path.
 
 ### The board file
 
@@ -431,6 +431,39 @@ them on a PC.
 A missing file is the same as an empty one. The file belongs to the image, in
 the board's `overlay-motionsense`, not to the app: the app is the same on
 every board.
+
+### Configuration
+
+`config.json`, in `MotionSense/` on storage, holds what the user may change. The
+daemon writes it with the defaults when there is none, and reads it once at
+start. A missing key takes its default. A value of the wrong type is ignored
+with a warning in the log; a file that is not valid JSON is left as it is and
+the defaults are used.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `h264.width`, `h264.height` | 1920, 1080 | Recording resolution |
+| `h264.fps` | 30 | Sensor frame rate of the recording stream |
+| `h264.bitrate_kbps` | 4000 | |
+| `h264.gop` | 60 | Frames between keyframes |
+| `mjpeg.width`, `mjpeg.height` | 1920, 1080 | Live view resolution |
+| `mjpeg.fps` | 15 | |
+| `mjpeg.qfactor_max`, `mjpeg.qfactor_min` | 80, 65 | JPEG quality range |
+| `ivs.width`, `ivs.height` | 640, 360 | Resolution motion is detected at |
+| `ivs.fps` | 15 | |
+| `ivs.md_interval` | 4 | Analyse every N frames |
+| `ivs.md_sensibility` | 3 | Detector sensitivity, 1 to 5 |
+| `ivs.md_night_mode` | true | |
+| `ivs.thresh_sad`, `ivs.thresh_move` | 40, 2 | Detector thresholds |
+| `ivs.area_ratio` | 0.05 | Fraction of the frame that must move to count as motion |
+| `ivs.poll_ms` | 100 | How often the detector is polled |
+| `ivs.fps_low`, `ivs.fps_high` | 1, 30 | Recording frame rate without and with motion |
+| `ivs.motion_debounce_ms` | 1000 | Sampling interval of the motion log |
+| `osd.font_size`, `osd.margin` | 36, 16 | Pixels |
+| `osd.position` | `bottom-right` | `top-left`, `top-right`, `bottom-left` or `bottom-right` |
+| `storage.hls_duration_s` | 0 | 0 cuts a segment at every keyframe; above 0 also requires that many seconds |
+| `storage.disk_free_min_mb` | 2048 | Old days are deleted below this much free space |
+| `storage.cleanup_every_ts` | 20 | Segments between free-space checks |
 
 The binary is linked with `RPATH=$ORIGIN/../lib`, resolving to `/oem/usr/lib`
 from `/oem/usr/bin`. This covers the daemon's own `NEEDED` entries but not the
@@ -463,8 +496,8 @@ the clock held before ntpd corrects it.
 
 `S99motionsense` hands the camera over from the stock `rkipc` app and starts
 the two programs. Each waits for storage itself, for as long as it takes: the
-daemon then creates `MotionSense/`, copies the seed configuration if there is
-none, and sends the vendor libraries' stderr to `motionsense.log`. The SD
+daemon then creates `MotionSense/`, writes `config.json` if there is none,
+and sends the vendor libraries' stderr to `motionsense.log`. The SD
 card is auto-mounted by a udev rule shipped in the rootfs
 (`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`), covering
 vfat/exfat/ntfs/ext2/3/4.

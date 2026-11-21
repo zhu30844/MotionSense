@@ -7,20 +7,15 @@
 #   /oem/usr/share/MotionSense/fonts/     OSD font
 #   /etc/init.d/S99motionsense            boot autostart script (deploy mode)
 #
-# Runtime data lives on the SD card (see the C config): config.yaml, the
-# DCIM recordings and the log file. /oem only holds code and static assets.
+# Runtime data lives on the SD card: config.json, the DCIM recordings and the
+# logs. The daemon writes config.json itself when there is none.
 #
 # Usage:
 #   ./deploy.sh            build + push + run in foreground (ctrl-c stops it)
 #   ./deploy.sh build      build only
 #   ./deploy.sh deploy     build + push + install S99 + (re)start as a daemon
-#   ./deploy.sh pushcfg    force-push config.yaml -> SD card (overwrites device copy)
 #   ./deploy.sh stop       stop any running instance on the device
 #   ./deploy.sh clean      wipe build/ and install/
-#
-# config.yaml lives on the SD card and is the device's tuning knob, so deploy/run
-# only seed it when missing (never clobber on-device edits). Use `pushcfg` to push
-# local config.yaml changes on purpose.
 
 set -euo pipefail
 
@@ -37,8 +32,6 @@ BIN_DIR="/oem/usr/bin"
 LIB_DIR="/oem/usr/lib"
 SHARE_DIR="/oem/usr/share/MotionSense"
 DAEMON="$BIN_DIR/MotionSense"
-CONFIG_SRC="$ROOT/config.yaml"
-CONFIG_DST="/mnt/sdcard/MotionSense/config.yaml"
 # Boot-autostart location: busybox rcS runs /etc/init.d/S?? scripts in order, so
 # this S99 runs after S21appinit (which starts rkipc) and hands the camera over.
 INIT_SCRIPT="/etc/init.d/S99motionsense"
@@ -91,22 +84,6 @@ push_payload() {
     # that isn't on the device, push it to $LIB_DIR here.
 }
 
-push_config() {
-    [ -f "$CONFIG_SRC" ] || die "$CONFIG_SRC not found"
-    adb shell "mkdir -p '$(dirname "$CONFIG_DST")'"
-    adb push "$CONFIG_SRC" "$CONFIG_DST"
-}
-
-# Seed config.yaml on first provision only; never overwrite on-device tuning.
-seed_config() {
-    if [ "$(adb shell "[ -f '$CONFIG_DST' ] && echo yes" | tr -d '\r')" = "yes" ]; then
-        warn "config exists on device, leaving it untouched (use 'pushcfg' to overwrite)"
-    else
-        log "seeding config.yaml -> $CONFIG_DST"
-        push_config
-    fi
-}
-
 ensure_modules() {
     adb shell '
         if [ ! -d /dev/mpi ]; then
@@ -122,9 +99,6 @@ case "$MODE" in
     clean)
         rm -rf "$BUILD" "$ROOT/install"
         log "cleaned"; exit 0 ;;
-    pushcfg)
-        log "force-pushing config.yaml -> $CONFIG_DST"
-        push_config; exit 0 ;;
     stop)
         log "stopping MotionSense on device"
         stop_remote; exit 0 ;;
@@ -134,7 +108,7 @@ case "$MODE" in
     run|deploy)
         ;;  # fall through to the shared build + push path below
     *)
-        die "usage: $0 {<none>|build|deploy|pushcfg|stop|clean}" ;;
+        die "usage: $0 {<none>|build|deploy|stop|clean}" ;;
 esac
 
 # ── shared: build, stop whatever is running, push code, load modules ────────────
@@ -146,7 +120,6 @@ stop_remote
 wait_stopped
 
 push_payload
-seed_config
 ensure_modules
 
 # ── deploy: install init script and (re)start as a background daemon ────────────

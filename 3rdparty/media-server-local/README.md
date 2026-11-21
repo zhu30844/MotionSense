@@ -12,8 +12,8 @@ so the change stays visible instead of hiding as a dirty submodule.
 `hls_media_input()` asserts that DTS advances by less than one segment
 duration. The cut logic below it supports `duration == 0`, meaning "start a new
 segment on every keyframe", but the assert does not allow for it and fires on
-the second frame. `storage.c` uses exactly that mode — `config.yaml` ships
-`hls_duration_s: 0` so segment length follows the GOP.
+the second frame. `storage.c` uses exactly that mode — `hls_duration_s`
+defaults to 0 so segment length follows the GOP.
 
 Release builds define `NDEBUG`, so the assert is compiled out and the patch
 changes nothing there. A `-DCMAKE_BUILD_TYPE=Debug` build without it aborts as

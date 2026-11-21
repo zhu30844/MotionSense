@@ -13,26 +13,6 @@
 
 ms_board_t g_board;
 
-static char *read_file(const char *path)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-
-    char *buf = NULL;
-    if (fseek(f, 0, SEEK_END) == 0)
-    {
-        long len = ftell(f);
-        rewind(f);
-        if (len >= 0 && (buf = malloc((size_t)len + 1)) != NULL)
-        {
-            size_t got = fread(buf, 1, (size_t)len, f);
-            buf[got] = '\0';
-        }
-    }
-    fclose(f);
-    return buf;
-}
-
 void ms_board_load(void)
 {
     ms_board_t *b = &g_board;
@@ -66,7 +46,7 @@ void ms_board_load(void)
     snprintf(b->meta_db, sizeof(b->meta_db), "%sVideoMetadata.db", b->dcim_root);
     snprintf(b->data_dir, sizeof(b->data_dir), "%s/MotionSense", b->storage_root);
     snprintf(b->config_path, sizeof(b->config_path),
-             "%s/MotionSense/config.yaml", b->storage_root);
+             "%s/MotionSense/config.json", b->storage_root);
 
     MS_LOG_INFO("storage %s (%s)\n", b->storage_root,
                 b->storage_removable ? "removable" : "fixed");

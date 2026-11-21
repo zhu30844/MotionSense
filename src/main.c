@@ -44,7 +44,7 @@ void app_ctx_deinit(app_ctx_t *ctx)
     if (ctx->vq) { fq_destroy(ctx->vq); ctx->vq = NULL; }
 }
 
-/* Wait for storage, then set up what lives on it: config and the log. */
+/* Wait for storage, then set up what lives on it besides recordings. */
 static int storage_wait(void)
 {
     if (!ms_storage_present())
@@ -60,12 +60,6 @@ static int storage_wait(void)
         MS_LOG_ERROR("mkdir %s failed\n", g_board.data_dir);
         return -1;
     }
-
-    /* First run: leave the user a copy to edit. */
-    char seed[MS_PATH_MAX * 2];
-    if (access(g_board.config_path, F_OK) != 0 &&
-        ms_install_path(seed, sizeof(seed), CFG_CONFIG_SEED_REL) == 0)
-        copy_file(seed, g_board.config_path);
 
     /* The vendor libraries print to stderr. */
     char log[MS_PATH_MAX * 2];

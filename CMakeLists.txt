@@ -82,7 +82,7 @@ if(MS_PLATFORM STREQUAL "pcsim")
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/HostLibs.cmake)
     set(MS_MEDIA_LIBS pcsim)
 else()
-    # sqlite3, libyaml, cjson, libiconv and freetype come from the buildroot sysroot
+    # sqlite3, cjson, libiconv and freetype come from the buildroot sysroot
     # rather than vendored source; see cmake/SystemLibs.cmake.
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemLibs.cmake)
     set(MS_MEDIA_LIBS rk::rockit rk::rkaiq)
@@ -122,7 +122,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     media::hls
     osd::osd
     cjson::cjson
-    yaml::yaml
 )
 
 # Standalone installs a self-contained dir (binary + lib/ next to it).
@@ -142,7 +141,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # Install
 # ------------------------------------------------------------------
 install(TARGETS ${PROJECT_NAME} DESTINATION ".")
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.yaml DESTINATION ".")
 # install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/www/ DESTINATION "www")
 
 # Vendor shared libraries. Only needed for the standalone layout: under the

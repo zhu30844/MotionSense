@@ -13,7 +13,7 @@ upgrade_tool uf images/update.img
 
 The other files in `images/` are the individual partitions that make up
 `update.img`, for anyone flashing them one at a time. Recordings, the
-database and `config.yaml` live on the SD card and are not touched by a
+database and `config.json` live on the SD card and are not touched by a
 flash.
 
 What the device does, how to configure it and what it needs from the SD
