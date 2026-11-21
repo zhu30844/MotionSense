@@ -4,6 +4,9 @@ set -euo pipefail
 APP=$(cd "$(dirname "$(realpath "$0")")/.." && pwd)
 OUT=$APP/build/pcsim
 
+# The Rockchip headers are not in the repository.
+[ -e "$APP/vendor/rockit/lib/librockit.so" ] || "$APP/scripts/sync-vendor.sh"
+
 # Same layout as /oem/usr: the daemon finds its files from where it is.
 cmake -S "$APP" -B "$OUT" -DMS_PLATFORM=pcsim \
     -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUT/bin" >/dev/null

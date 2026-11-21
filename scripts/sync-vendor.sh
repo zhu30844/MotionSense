@@ -17,19 +17,24 @@ RV=arm-rockchip830-linux-uclibcgnueabihf
 ISP="$SDK/media/isp/release_camera_engine_rkaiq_rv1106_$RV"
 MPP="$SDK/media/mpp/release_mpp_rv1106_$RV"
 RGA="$SDK/media/rga/release_rga_rv1106_$RV"
-ROCKIT="$SDK/media/rockit"
+ROCKIT="$SDK/media/rockit/rockit"
 
 copy() {  # copy <src> <dst>
-    [ -e "$1" ] || { echo "missing in SDK: $1" >&2; exit 1; }
     mkdir -p "$(dirname "$2")"
     cp -a "$1" "$2"
 }
 
+# Nothing is removed before everything it will be replaced with is there.
+for src in "$ROCKIT/mpi/sdk/include" "$ROCKIT/lib/lib32/librockit.so" \
+           "$ISP/include" "$ISP/lib/librkaiq.so" "$MPP/include" "$RGA/lib/librga.so"; do
+    [ -e "$src" ] || { echo "missing in SDK: $src" >&2; exit 1; }
+done
+
 echo "Syncing vendor/ from $SDK"
 rm -rf "$APP_DIR"/vendor/{rockit,rkaiq,mpp,rga}/{include,lib}
 
-copy "$ROCKIT/out/include"  "$APP_DIR/vendor/rockit/include"
-copy "$ROCKIT/rockit/lib/lib32/librockit.so" "$APP_DIR/vendor/rockit/lib/librockit.so"
+copy "$ROCKIT/mpi/sdk/include" "$APP_DIR/vendor/rockit/include"
+copy "$ROCKIT/lib/lib32/librockit.so" "$APP_DIR/vendor/rockit/lib/librockit.so"
 
 copy "$ISP/include"         "$APP_DIR/vendor/rkaiq/include"
 copy "$ISP/lib/librkaiq.so" "$APP_DIR/vendor/rkaiq/lib/librkaiq.so"
