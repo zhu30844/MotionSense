@@ -397,7 +397,7 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 /oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
 /oem/usr/share/MotionSense/fonts/            OSD font
 /oem/usr/lib/                                Rockchip media libraries
-/etc/init.d/S99motionsense                   start script (from the board overlay)
+/etc/init.d/S99motionsense                   start script (installed by the app build)
 /etc/motionsense/board.json                  board file (from the board overlay)
 /mnt/sdcard/MotionSense/config.json          configuration
 /mnt/sdcard/MotionSense/motionsense.log      stderr of the vendor libraries
@@ -407,6 +407,11 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 
 The font is found relative to the binary (`../share/MotionSense/fonts/`), not
 by absolute path.
+
+The start script is the app's own `S99motionsense`, the same on every board.
+The app build puts it under `root/` of its output, which `build.sh` copies
+into the rootfs before the overlays; an overlay that carried a copy would
+replace it.
 
 ### The board file
 
@@ -600,7 +605,6 @@ project/cfg/BoardConfig_MotionSense_Pro_Max/
     ├── overlay-luckfox-buildroot-init   -> symlink
     ├── overlay-luckfox-buildroot-shadow -> symlink
     └── overlay-motionsense/etc/
-        ├── init.d/S99motionsense
         ├── motionsense/board.json
         └── TZ
 

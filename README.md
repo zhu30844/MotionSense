@@ -128,8 +128,8 @@ still records. [docs/BUILD.md](docs/BUILD.md#configuration) lists the keys.
 
 `S99motionsense` hands the camera over from the stock `rkipc` app and starts
 both. Each waits for the card to mount by itself. The script ships in the
-image through the board overlay, so a flashed board records from first boot
-with nothing to install and nothing to configure.
+image, so a flashed board records from first boot with nothing to install and
+nothing to configure.
 
 ## Building
 

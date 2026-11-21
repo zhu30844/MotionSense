@@ -277,7 +277,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 /oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
 /oem/usr/share/MotionSense/fonts/            OSD font
 /oem/usr/lib/                                Rockchip media libraries
-/etc/init.d/S99motionsense                   start script (from the board overlay)
+/etc/init.d/S99motionsense                   start script (installed by the app build)
 /etc/motionsense/board.json                  board file (from the board overlay)
 /mnt/sdcard/MotionSense/config.json          configuration
 /mnt/sdcard/MotionSense/motionsense.log      stderr of the vendor libraries
@@ -286,6 +286,8 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 ```
 
 字体按相对于二进制文件的位置（`../share/MotionSense/fonts/`）查找，不用绝对路径。
+
+启动脚本就是应用自己的 `S99motionsense`，每块板子都相同。应用构建把它放在输出目录的 `root/` 下，`build.sh` 在盖 overlay 之前把它拷进 rootfs；overlay 里如果还带着一份，会把它替换掉。
 
 ### 板级文件
 
@@ -431,7 +433,6 @@ project/cfg/BoardConfig_MotionSense_Pro_Max/
     ├── overlay-luckfox-buildroot-init   -> symlink
     ├── overlay-luckfox-buildroot-shadow -> symlink
     └── overlay-motionsense/etc/
-        ├── init.d/S99motionsense
         ├── motionsense/board.json
         └── TZ
 
