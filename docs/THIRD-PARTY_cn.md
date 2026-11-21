@@ -2,7 +2,7 @@
 
 [English](THIRD-PARTY.md) | 简体中文
 
-最后编辑：2026-11-21
+最后编辑：2026-11-22
 
 `../LICENSE`（MIT）适用于为本项目编写的代码。本文列出源码树中的其他所有内容及其所附带的条款。路径相对于仓库根目录，而不是本目录。
 
@@ -13,7 +13,7 @@
 | `src/`、`include/` | C 守护进程 |
 | `agent/` | Go agent 及其 Web 资源，`agent/static/js/video-js-*/` 除外 |
 | `cmake/`、`scripts/`、`Makefile`、`CMakeLists.txt` | 构建 |
-| `config.yaml`、`S99motionsense`、`*.sh`、`docs/` | 打包与文档 |
+| `S99motionsense`、`*.sh`、`docs/` | 打包与文档 |
 
 ## 在此分发，适用其各自的条款
 

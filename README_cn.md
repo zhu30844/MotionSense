@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-最后编辑：2026-11-21
+最后编辑：2026-11-22
 
 面向 Luckfox Pico Pro Max（Rockchip RV1106，正在适配 Ultra）的运动触发录像程序。把 H.264 以 HLS 形式录到 SD 卡上，通过 HTTP 提供实时 MJPEG 流和回放界面，并把运动事件记录到 SQLite。
 
@@ -82,9 +82,9 @@
 
 两者通过 unix socket（`/tmp/motionsense-stream.sock`）通信，这让划分保持干净：守护进程挂掉不会带走 Web 界面，agent 重启也不会打断录像。
 
-配置是 SD 卡上的一个 `config.yaml`，首次启动时从镜像里拷过去，之后不再覆盖。文件缺失时使用编译进程序的默认值，所以一张空卡照样能录。
+配置是 SD 卡上的一个 `config.json`。首次启动时守护进程按默认值写出，之后不再覆盖，所以一张空卡照样能录。各个键见 [docs/BUILD_cn.md](docs/BUILD_cn.md#配置)。
 
-正在更改：`S99motionsense` 负责启动两个进程、等待 SD 卡挂载，并从原厂的 `rkipc` 程序手里接管摄像头。它通过板级 overlay 打进镜像，所以刷好的板子第一次开机就开始录像，无需安装、无需配置。
+`S99motionsense` 从原厂的 `rkipc` 程序手里接管摄像头，然后启动两个进程。两个进程各自等待 SD 卡挂载。这个脚本通过板级 overlay 打进镜像，所以刷好的板子第一次开机就开始录像，无需安装、无需配置。
 
 ## 构建
 

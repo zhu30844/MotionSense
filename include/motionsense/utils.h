@@ -31,8 +31,9 @@ int ensure_dir(const char *path);
 /* Whether `path` is the root of a mounted filesystem. */
 bool is_mount_point(const char *path);
 
-/* Copy a file. Returns 0 on success, -1 on error. */
-int copy_file(const char *src, const char *dst);
+/* The whole file as a NUL-terminated string, for the caller to free().
+ * NULL on error, with errno from fopen() when it could not be opened. */
+char *read_file(const char *path);
 
 /* fsync the directory that contains `path`, so a preceding create/rename is
  * durable across power loss. Returns 0 on success, -1 on error. */

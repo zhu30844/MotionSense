@@ -16,7 +16,6 @@
 # Each entry names the shared library it is expected to provide, which is
 # what cmake/SystemLibs.cmake looks for in the sysroot.
 
-BR2_PACKAGE_LIBYAML=y   # libyaml-0.so.2   -> yaml::yaml
 BR2_PACKAGE_SQLITE=y    # libsqlite3.so.0  -> sqlite3::sqlite3
 BR2_PACKAGE_CJSON=y     # libcjson.so.1    -> cjson::cjson
 

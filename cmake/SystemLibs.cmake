@@ -54,7 +54,6 @@ function(ms_import_syslib target soname)
 endfunction()
 
 ms_import_syslib(ms_sqlite3  sqlite3)
-ms_import_syslib(ms_yaml     yaml)
 ms_import_syslib(ms_cjson    cjson)
 ms_import_syslib(ms_iconv    iconv)
 ms_import_syslib(ms_freetype freetype "${MS_SYSROOT}/usr/include/freetype2")
@@ -71,7 +70,6 @@ set_property(TARGET ms_freetype APPEND PROPERTY
              INTERFACE_LINK_LIBRARIES ms_z ms_bz2)
 
 add_library(sqlite3::sqlite3   ALIAS ms_sqlite3)
-add_library(yaml::yaml         ALIAS ms_yaml)
 add_library(cjson::cjson       ALIAS ms_cjson)
 add_library(iconv::iconv      ALIAS ms_iconv)
 add_library(freetype::freetype ALIAS ms_freetype)

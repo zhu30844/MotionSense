@@ -1,6 +1,6 @@
 # Third-party components
 
-Last edited: 2026-11-21
+Last edited: 2026-11-22
 
 `../LICENSE` (MIT) covers the code written for this project. This file lists
 everything else in the tree and the terms it carries. Paths are relative to
@@ -13,7 +13,7 @@ the repository root, not to this directory.
 | `src/`, `include/` | the C daemon |
 | `agent/` | the Go agent and its web assets, except `agent/static/js/video-js-*/` |
 | `cmake/`, `scripts/`, `Makefile`, `CMakeLists.txt` | build |
-| `config.yaml`, `S99motionsense`, `*.sh`, `docs/` | packaging and docs |
+| `S99motionsense`, `*.sh`, `docs/` | packaging and docs |
 
 ## Distributed here, under their own terms
 

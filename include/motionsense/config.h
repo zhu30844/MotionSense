@@ -12,11 +12,10 @@
 #define CFG_ISP_IQ_DIR       "/etc/iqfiles"
 /* Relative to the binary: /oem/usr/bin and /oem/usr/share on the board. */
 #define CFG_OSD_FONT_REL     "../share/MotionSense/fonts/DejaVuSansMono.ttf"
-#define CFG_CONFIG_SEED_REL  "../share/MotionSense/config.yaml"
 #define CFG_SOCKET_PATH      "/tmp/motionsense-stream.sock"
 
 /* ------------------------------------------------------------------ */
-/* Compile-time defaults (used when config.yaml is absent or partial) */
+/* Defaults: written to config.json on first run, used for missing keys */
 /* ------------------------------------------------------------------ */
 #define CFG_VI_W             1920
 #define CFG_VI_H             1080
@@ -26,8 +25,8 @@
 #define CFG_IVS_H            360
 #define CFG_FPS_LOW          1
 #define CFG_FPS_HIGH         30
-#define CFG_MD_AREA_RATIO    0.05f
-#define CFG_IVS_POLL_MS      250
+#define CFG_MD_AREA_RATIO    0.05
+#define CFG_IVS_POLL_MS      100
 #define CFG_OSD_FONT_SIZE    36
 #define CFG_OSD_MARGIN       16
 #define CFG_HLS_DURATION_S   0    /* 0 = cut one segment per keyframe (length = GOP) */
@@ -75,7 +74,7 @@ typedef struct {
     bool     md_night_mode;
     int      thresh_sad;
     int      thresh_move;
-    float    area_ratio;
+    double   area_ratio;
     int      poll_ms;
     int      fps_low;
     int      fps_high;
@@ -104,7 +103,8 @@ typedef struct {
 
 extern ms_config_t g_cfg;
 
-/* Load config.yaml; on any error falls back to compiled-in defaults. */
+/* Load config.json. A missing file is written with the defaults; an invalid
+ * file or value is left alone and the defaults are used. */
 void ms_config_load(const char *path);
 
 #endif /* MOTIONSENSE_CONFIG_H */

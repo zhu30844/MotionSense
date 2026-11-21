@@ -1,85 +1,86 @@
 #include "motionsense/config.h"
+#include "motionsense/utils.h"
 #include "log.h"
 
-#include <yaml.h>
+#include <cjson/cJSON.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
 #define LOG_TAG "config"
 
-/* ------------------------------------------------------------------ */
-/* Global config instance — defaults set in ms_config_load()          */
-/* ------------------------------------------------------------------ */
 ms_config_t g_cfg;
 
 /* ------------------------------------------------------------------ */
-/* libyaml document helpers                                           */
+/* What is configurable: loading and saving both walk this one list   */
 /* ------------------------------------------------------------------ */
-static yaml_node_t *map_get(yaml_document_t *doc, yaml_node_t *map, const char *key)
-{
-    if (!map || map->type != YAML_MAPPING_NODE) return NULL;
-    for (yaml_node_pair_t *p = map->data.mapping.pairs.start;
-         p < map->data.mapping.pairs.top; p++) {
-        yaml_node_t *k = yaml_document_get_node(doc, p->key);
-        if (k && k->type == YAML_SCALAR_NODE &&
-            strcmp((char *)k->data.scalar.value, key) == 0)
-            return yaml_document_get_node(doc, p->value);
-    }
-    return NULL;
-}
+typedef enum { T_INT, T_U32, T_DOUBLE, T_BOOL, T_OSD_POS } field_type_t;
 
-static const char *str_val(yaml_document_t *doc, yaml_node_t *map, const char *key)
-{
-    yaml_node_t *n = map_get(doc, map, key);
-    if (n && n->type == YAML_SCALAR_NODE)
-        return (const char *)n->data.scalar.value;
-    return NULL;
-}
+typedef struct {
+    const char  *section;
+    const char  *key;
+    field_type_t type;
+    void        *value;
+} field_t;
 
-static int int_val(yaml_document_t *doc, yaml_node_t *map, const char *key, int def)
-{
-    const char *s = str_val(doc, map, key);
-    return s ? atoi(s) : def;
-}
+#define F(sec, key, type) { #sec, #key, type, &g_cfg.sec.key }
 
-static uint32_t u32_val(yaml_document_t *doc, yaml_node_t *map, const char *key, uint32_t def)
-{
-    const char *s = str_val(doc, map, key);
-    return s ? (uint32_t)strtoul(s, NULL, 10) : def;
-}
+static const field_t s_fields[] = {
+    F(h264, width,        T_U32),
+    F(h264, height,       T_U32),
+    F(h264, fps,          T_INT),
+    F(h264, bitrate_kbps, T_U32),
+    F(h264, gop,          T_INT),
 
-static float float_val(yaml_document_t *doc, yaml_node_t *map, const char *key, float def)
-{
-    const char *s = str_val(doc, map, key);
-    return s ? (float)atof(s) : def;
-}
+    F(mjpeg, width,       T_U32),
+    F(mjpeg, height,      T_U32),
+    F(mjpeg, fps,         T_INT),
+    F(mjpeg, qfactor_max, T_U32),
+    F(mjpeg, qfactor_min, T_U32),
 
-static bool bool_val(yaml_document_t *doc, yaml_node_t *map, const char *key, bool def)
-{
-    const char *s = str_val(doc, map, key);
-    if (!s) return def;
-    return strcmp(s, "true") == 0 || strcmp(s, "yes") == 0 || strcmp(s, "1") == 0;
-}
+    F(ivs, width,              T_U32),
+    F(ivs, height,             T_U32),
+    F(ivs, fps,                T_INT),
+    F(ivs, md_interval,        T_INT),
+    F(ivs, md_sensibility,     T_INT),
+    F(ivs, md_night_mode,      T_BOOL),
+    F(ivs, thresh_sad,         T_INT),
+    F(ivs, thresh_move,        T_INT),
+    F(ivs, area_ratio,         T_DOUBLE),
+    F(ivs, poll_ms,            T_INT),
+    F(ivs, fps_low,            T_INT),
+    F(ivs, fps_high,           T_INT),
+    F(ivs, motion_debounce_ms, T_INT),
 
-static osd_position_t pos_val(yaml_document_t *doc, yaml_node_t *map,
-                               const char *key, osd_position_t def)
-{
-    const char *s = str_val(doc, map, key);
-    if (!s) return def;
-    if (strcmp(s, "top-left")     == 0) return OSD_POS_TOP_LEFT;
-    if (strcmp(s, "top-right")    == 0) return OSD_POS_TOP_RIGHT;
-    if (strcmp(s, "bottom-left")  == 0) return OSD_POS_BOTTOM_LEFT;
-    if (strcmp(s, "bottom-right") == 0) return OSD_POS_BOTTOM_RIGHT;
-    MS_LOG_WARN("unknown osd.position '%s', using default\n", s);
-    return def;
-}
+    F(osd, font_size, T_INT),
+    F(osd, margin,    T_INT),
+    F(osd, position,  T_OSD_POS),
+
+    F(storage, hls_duration_s,   T_INT),
+    F(storage, disk_free_min_mb, T_U32),
+    F(storage, cleanup_every_ts, T_INT),
+};
+
+#define FIELD_COUNT (sizeof(s_fields) / sizeof(s_fields[0]))
+
+static const char *const s_osd_pos[] = {
+    [OSD_POS_TOP_LEFT]     = "top-left",
+    [OSD_POS_TOP_RIGHT]    = "top-right",
+    [OSD_POS_BOTTOM_LEFT]  = "bottom-left",
+    [OSD_POS_BOTTOM_RIGHT] = "bottom-right",
+};
+
+#define OSD_POS_COUNT (sizeof(s_osd_pos) / sizeof(s_osd_pos[0]))
 
 /* ------------------------------------------------------------------ */
-/* Apply defaults                                                      */
+/* Defaults                                                            */
 /* ------------------------------------------------------------------ */
 static void config_defaults(ms_config_t *c)
 {
@@ -121,55 +122,96 @@ static void config_defaults(ms_config_t *c)
 }
 
 /* ------------------------------------------------------------------ */
-/* Parse sections                                                      */
+/* Load                                                                */
 /* ------------------------------------------------------------------ */
-static void parse_h264(yaml_document_t *doc, yaml_node_t *sec, ms_config_t *c)
+/* False when the value has the wrong type; the field keeps its default. */
+static bool field_set(const field_t *f, const cJSON *v)
 {
-    c->h264.width        = u32_val(doc, sec, "width",        c->h264.width);
-    c->h264.height       = u32_val(doc, sec, "height",       c->h264.height);
-    c->h264.fps          = int_val(doc, sec, "fps",          c->h264.fps);
-    c->h264.bitrate_kbps = u32_val(doc, sec, "bitrate_kbps", c->h264.bitrate_kbps);
-    c->h264.gop          = int_val(doc, sec, "gop",          c->h264.gop);
+    switch (f->type)
+    {
+    case T_INT:
+        if (!cJSON_IsNumber(v)) return false;
+        *(int *)f->value = v->valueint;
+        return true;
+    case T_U32:
+        if (!cJSON_IsNumber(v) || v->valuedouble < 0) return false;
+        *(uint32_t *)f->value = (uint32_t)v->valuedouble;
+        return true;
+    case T_DOUBLE:
+        if (!cJSON_IsNumber(v)) return false;
+        *(double *)f->value = v->valuedouble;
+        return true;
+    case T_BOOL:
+        if (!cJSON_IsBool(v)) return false;
+        *(bool *)f->value = cJSON_IsTrue(v);
+        return true;
+    case T_OSD_POS:
+        if (!cJSON_IsString(v)) return false;
+        for (size_t i = 0; i < OSD_POS_COUNT; i++)
+            if (strcmp(v->valuestring, s_osd_pos[i]) == 0)
+            {
+                *(osd_position_t *)f->value = (osd_position_t)i;
+                return true;
+            }
+        return false;
+    }
+    return false;
 }
 
-static void parse_mjpeg(yaml_document_t *doc, yaml_node_t *sec, ms_config_t *c)
+/* ------------------------------------------------------------------ */
+/* Save                                                                */
+/* ------------------------------------------------------------------ */
+static void field_add(const field_t *f, cJSON *section)
 {
-    c->mjpeg.width       = u32_val(doc, sec, "width",        c->mjpeg.width);
-    c->mjpeg.height      = u32_val(doc, sec, "height",       c->mjpeg.height);
-    c->mjpeg.fps         = int_val(doc, sec, "fps",          c->mjpeg.fps);
-    c->mjpeg.qfactor_max = u32_val(doc, sec, "qfactor_max",  c->mjpeg.qfactor_max);
-    c->mjpeg.qfactor_min = u32_val(doc, sec, "qfactor_min",  c->mjpeg.qfactor_min);
+    switch (f->type)
+    {
+    case T_INT:     cJSON_AddNumberToObject(section, f->key, *(int *)f->value);      break;
+    case T_U32:     cJSON_AddNumberToObject(section, f->key, *(uint32_t *)f->value); break;
+    case T_DOUBLE:  cJSON_AddNumberToObject(section, f->key, *(double *)f->value);   break;
+    case T_BOOL:    cJSON_AddBoolToObject(section, f->key, *(bool *)f->value);       break;
+    case T_OSD_POS: cJSON_AddStringToObject(section, f->key,
+                                            s_osd_pos[*(osd_position_t *)f->value]); break;
+    }
 }
 
-static void parse_ivs(yaml_document_t *doc, yaml_node_t *sec, ms_config_t *c)
+/* Written to a temporary file and renamed, so a failure leaves no half file. */
+static int config_save(const char *path)
 {
-    c->ivs.width          = u32_val  (doc, sec, "width",          c->ivs.width);
-    c->ivs.height         = u32_val  (doc, sec, "height",         c->ivs.height);
-    c->ivs.fps            = int_val  (doc, sec, "fps",            c->ivs.fps);
-    c->ivs.md_interval    = int_val  (doc, sec, "md_interval",    c->ivs.md_interval);
-    c->ivs.md_sensibility = int_val  (doc, sec, "md_sensibility", c->ivs.md_sensibility);
-    c->ivs.md_night_mode  = bool_val (doc, sec, "md_night_mode",  c->ivs.md_night_mode);
-    c->ivs.thresh_sad     = int_val  (doc, sec, "thresh_sad",     c->ivs.thresh_sad);
-    c->ivs.thresh_move    = int_val  (doc, sec, "thresh_move",    c->ivs.thresh_move);
-    c->ivs.area_ratio     = float_val(doc, sec, "area_ratio",     c->ivs.area_ratio);
-    c->ivs.poll_ms        = int_val  (doc, sec, "poll_ms",        c->ivs.poll_ms);
-    c->ivs.fps_low        = int_val  (doc, sec, "fps_low",        c->ivs.fps_low);
-    c->ivs.fps_high       = int_val  (doc, sec, "fps_high",       c->ivs.fps_high);
-    c->ivs.motion_debounce_ms = int_val(doc, sec, "motion_debounce_ms", c->ivs.motion_debounce_ms);
-}
+    cJSON *root = cJSON_CreateObject();
+    for (size_t i = 0; root && i < FIELD_COUNT; i++)
+    {
+        const field_t *f = &s_fields[i];
+        cJSON *section = cJSON_GetObjectItemCaseSensitive(root, f->section);
+        if (!section)
+            section = cJSON_AddObjectToObject(root, f->section);
+        if (section)
+            field_add(f, section);
+    }
+    char *text = root ? cJSON_Print(root) : NULL;
+    cJSON_Delete(root);
+    if (!text)
+        return -1;
 
-static void parse_osd(yaml_document_t *doc, yaml_node_t *sec, ms_config_t *c)
-{
-    c->osd.font_size = int_val(doc, sec, "font_size", c->osd.font_size);
-    c->osd.margin    = int_val(doc, sec, "margin",    c->osd.margin);
-    c->osd.position  = pos_val(doc, sec, "position",  c->osd.position);
-}
+    char tmp[PATH_MAX];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", path);
 
-static void parse_storage(yaml_document_t *doc, yaml_node_t *sec, ms_config_t *c)
-{
-    c->storage.hls_duration_s   = int_val(doc, sec, "hls_duration_s",   c->storage.hls_duration_s);
-    c->storage.disk_free_min_mb = u32_val(doc, sec, "disk_free_min_mb", c->storage.disk_free_min_mb);
-    c->storage.cleanup_every_ts = int_val(doc, sec, "cleanup_every_ts", c->storage.cleanup_every_ts);
+    int rc = -1;
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd >= 0)
+    {
+        if (write_all(fd, text, strlen(text)) == 0 &&
+            write_all(fd, "\n", 1) == 0 && fsync(fd) == 0)
+            rc = 0;
+        close(fd);
+        if (rc == 0 && rename(tmp, path) != 0)
+            rc = -1;
+        if (rc == 0)
+            fsync_parent_dir(path);
+        else
+            unlink(tmp);
+    }
+    free(text);
+    return rc;
 }
 
 /* ------------------------------------------------------------------ */
@@ -179,39 +221,35 @@ void ms_config_load(const char *path)
 {
     config_defaults(&g_cfg);
 
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        MS_LOG_WARN("config file not found at %s, using defaults\n", path);
+    char *text = read_file(path);
+    if (!text)
+    {
+        /* First run: leave the user a file to edit. */
+        if (errno == ENOENT && config_save(path) == 0)
+            MS_LOG_INFO("no %s, wrote the defaults\n", path);
+        else
+            MS_LOG_WARN("cannot read %s, using defaults\n", path);
         return;
     }
 
-    yaml_parser_t   parser;
-    yaml_document_t doc;
-
-    yaml_parser_initialize(&parser);
-    yaml_parser_set_input_file(&parser, f);
-
-    if (!yaml_parser_load(&parser, &doc)) {
-        MS_LOG_WARN("config YAML parse error at line %zu, using defaults\n",
-                 parser.problem_mark.line + 1);
-        yaml_parser_delete(&parser);
-        fclose(f);
+    cJSON *root = cJSON_Parse(text);
+    free(text);
+    if (!cJSON_IsObject(root))
+    {
+        MS_LOG_WARN("%s is not valid JSON, using defaults\n", path);
+        cJSON_Delete(root);
         return;
     }
 
-    yaml_node_t *root = yaml_document_get_root_node(&doc);
-    if (root && root->type == YAML_MAPPING_NODE) {
-        yaml_node_t *sec;
-        if ((sec = map_get(&doc, root, "h264")))    parse_h264   (&doc, sec, &g_cfg);
-        if ((sec = map_get(&doc, root, "mjpeg")))   parse_mjpeg  (&doc, sec, &g_cfg);
-        if ((sec = map_get(&doc, root, "ivs")))     parse_ivs    (&doc, sec, &g_cfg);
-        if ((sec = map_get(&doc, root, "osd")))     parse_osd    (&doc, sec, &g_cfg);
-        if ((sec = map_get(&doc, root, "storage"))) parse_storage(&doc, sec, &g_cfg);
+    for (size_t i = 0; i < FIELD_COUNT; i++)
+    {
+        const field_t *f = &s_fields[i];
+        const cJSON *section = cJSON_GetObjectItemCaseSensitive(root, f->section);
+        const cJSON *v = cJSON_GetObjectItemCaseSensitive(section, f->key);
+        if (v && !field_set(f, v))
+            MS_LOG_WARN("%s.%s ignored: wrong type or value\n", f->section, f->key);
     }
-
-    yaml_document_delete(&doc);
-    yaml_parser_delete(&parser);
-    fclose(f);
+    cJSON_Delete(root);
 
     MS_LOG_INFO("loaded from %s (h264 %ux%u@%d %ukbps, ivs area=%.2f)\n",
              path,

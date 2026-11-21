@@ -10,7 +10,6 @@ cmake -S "$APP" -B "$OUT" -DMS_PLATFORM=pcsim \
 cmake --build "$OUT" -j"$(nproc)" >/dev/null
 (cd "$APP/agent" && go build -buildvcs=false -o "$OUT/bin/agent" .)
 install -D -m 644 -t "$OUT/share/MotionSense/fonts" "$APP/3rdparty/osd/DejaVuSansMono.ttf"
-install -m 644 -t "$OUT/share/MotionSense" "$APP/config.yaml"
 
 mkdir -p "$OUT/data"
 export MS_BOARD_FILE=$OUT/board.json

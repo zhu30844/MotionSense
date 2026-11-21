@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -47,27 +48,25 @@ bool is_mount_point(const char *path)
     return st.st_dev != pst.st_dev;
 }
 
-int copy_file(const char *src, const char *dst)
+char *read_file(const char *path)
 {
-    int in = open(src, O_RDONLY);
-    if (in < 0)
-        return -1;
-    int out = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (out < 0)
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return NULL;
+
+    char *buf = NULL;
+    if (fseek(f, 0, SEEK_END) == 0)
     {
-        close(in);
-        return -1;
+        long len = ftell(f);
+        rewind(f);
+        if (len >= 0 && (buf = malloc((size_t)len + 1)) != NULL)
+        {
+            size_t got = fread(buf, 1, (size_t)len, f);
+            buf[got] = '\0';
+        }
     }
-    char buf[4096];
-    ssize_t n;
-    int rc = 0;
-    while ((n = read(in, buf, sizeof(buf))) > 0)
-        if (write_all(out, buf, (size_t)n) != 0) { rc = -1; break; }
-    if (n < 0)
-        rc = -1;
-    close(in);
-    close(out);
-    return rc;
+    fclose(f);
+    return buf;
 }
 
 int fsync_parent_dir(const char *path)

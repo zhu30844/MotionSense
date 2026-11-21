@@ -1,6 +1,6 @@
 # Roadmap
 
-Last edited: 2026-11-21
+Last edited: 2026-11-22
 
 1.x assumes one board, one SD card, fixed paths, two unsupervised processes
 and hand-written pages. 2.0 replaces those assumptions; most features come
@@ -13,16 +13,16 @@ branch.
 wiping the whole SD card. Recordings and configuration on it are not kept.
 
 ### Boards
-- [ ] A read-only board file in the image that states what the board has
-      (replaces board detection). The user's `config.yaml` stays separate: it
+- [x] A read-only board file in the image that states what the board has
+      (replaces board detection). The user's `config.json` stays separate: it
       says what the user wants, the board file says what is there.
 - [ ] Modules start according to the board file and the user's configuration
-- [ ] The board file and the user's configuration are both JSON (replaces
+- [x] The board file and the user's configuration are both JSON (replaces
       `config.yaml`): programs will write the configuration once there is a
       settings page, and JSON survives that unchanged
-- [ ] The storage location comes from the board file (replaces the fixed
+- [x] The storage location comes from the board file (replaces the fixed
       mount point), so an SD card and a USB drive are the same to the programs
-- [ ] Recording checks that storage is mounted before writing, so a missing
+- [x] Recording checks that storage is mounted before writing, so a missing
       card never sends recordings to flash
 - [ ] Board configuration for the Luckfox Pico Ultra, including the rule that
       mounts its external storage
@@ -44,7 +44,7 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 ### Development
 - [x] PC simulator, so front-end work needs no board
 - [x] Full-stack development environment (Node.js in the devcontainer)
-- [ ] The simulator runs without the board's fixed directories
+- [x] The simulator runs without the board's fixed directories
 - [ ] CI releases both boards in parallel
 
 ## After 2.0

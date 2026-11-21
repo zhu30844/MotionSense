@@ -2,7 +2,7 @@
 
 English | [简体中文](README_cn.md)
 
-Last edited: 2026-11-21
+Last edited: 2026-11-22
 
 Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
 RV1106; support for the Pico Ultra is in progress). Records H.264 to HLS on
@@ -122,15 +122,14 @@ They talk over a unix socket (`/tmp/motionsense-stream.sock`), which keeps the
 split honest: the daemon can die without taking the web interface with it, and
 the agent restarts without disturbing a recording.
 
-Configuration is one `config.yaml` on the SD card, seeded from the image on
-first boot and never overwritten after that. Compiled-in defaults apply when
-it is missing, so a blank card still records.
+Configuration is one `config.json` on the SD card. The daemon writes it with
+the defaults on first boot and never overwrites it after that, so a blank card
+still records. [docs/BUILD.md](docs/BUILD.md#configuration) lists the keys.
 
-This part is changing for 2.0 (see the [roadmap](docs/ROADMAP.md)). Today,
-`S99motionsense` starts both, waits for the card to mount, and hands the
-camera over from the stock `rkipc` app. It ships in the image through the
-board overlay, so a flashed board records from first boot with nothing to
-install and nothing to configure.
+`S99motionsense` hands the camera over from the stock `rkipc` app and starts
+both. Each waits for the card to mount by itself. The script ships in the
+image through the board overlay, so a flashed board records from first boot
+with nothing to install and nothing to configure.
 
 ## Building
 

@@ -2,7 +2,7 @@
 
 [English](BUILD.md) | 简体中文
 
-最后编辑：2026-11-21
+最后编辑：2026-11-22
 
 MotionSense 的目标硬件是 Luckfox Pico Pro Max（Rockchip RV1106，SPI NAND）。它作为 Luckfox SDK 内的一个应用进行构建，位于该 SDK 一个 fork 中的 `project/app/motionsense`：
 
@@ -226,7 +226,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 ### 通过 adb 推送到运行中的开发板
 
-`deploy.sh` 构建并推送二进制文件，无需重新烧录。它不推送任何库，因此设备上必须已有这些库。在改用 buildroot 提供的库之前构建的镜像中没有 `libsqlite3.so.0`、`libyaml-0.so.2` 或 `libcjson.so.1`，守护进程将无法启动。在这类设备上烧录一次 `update.img`，之后 `deploy.sh` 即可使用。
+`deploy.sh` 构建并推送二进制文件，无需重新烧录。它不推送任何库，因此设备上必须已有这些库。在改用 buildroot 提供的库之前构建的镜像中没有 `libsqlite3.so.0` 或 `libcjson.so.1`，守护进程将无法启动。在这类设备上烧录一次 `update.img`，之后 `deploy.sh` 即可使用。
 
 ---
 
@@ -235,7 +235,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 | 依赖 | 来源 | 所在位置 |
 |---|---|---|
 | `librockit`、`librkaiq`、`librockchip_mpp`、`librga` | `output/out/media_out`（SDK 构建） | `/oem/usr/lib` |
-| `libsqlite3`、`libyaml`、`libcjson`、`libfreetype`、`libiconv` | buildroot sysroot | `/usr/lib`（rootfs） |
+| `libsqlite3`、`libcjson`、`libfreetype`、`libiconv` | buildroot sysroot | `/usr/lib`（rootfs） |
 | `libhls`/`libmpeg`（`3rdparty/media-server`，submodule）、`libosd`（`3rdparty/osd`） | 从源码构建，静态 | 链接进二进制 |
 
 ### Rockchip 库
@@ -248,13 +248,13 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 该脚本复制四个 `.so` 文件及其头文件。它不复制 `.a` 归档或 `librockit_full/tiny.so`；没有任何东西链接它们。
 
-发行版库来自 `cmake/SystemLibs.cmake`，它从 buildroot sysroot 导入这些库，使用与 vendor 副本相同的 CMake target 名称（`sqlite3::sqlite3`、`yaml::yaml`、`freetype::freetype`、`iconv::iconv`），另有 `cjson::cjson`。
+发行版库来自 `cmake/SystemLibs.cmake`，它从 buildroot sysroot 导入这些库，使用与 vendor 副本相同的 CMake target 名称（`sqlite3::sqlite3`、`freetype::freetype`、`iconv::iconv`），另有 `cjson::cjson`。
 
 ### media-server
 
 `3rdparty/media-server` 是 ireader/media-server 的 submodule，固定在 `ea53ac6`，保持原样不改。只编译 `libmpeg` 和 `libhls`；该项目的其余部分（flv、mov、mkv、dash、rtsp 等）不使用。构建胶水代码由我们编写，位于 `cmake/MediaServer.cmake`，因为 submodule 无法携带本地文件。
 
-有一个文件没有原样使用。`hls_media_input()` 对 DTS 连续性的断言方式不允许 `duration == 0`——即"每个关键帧切一个分段"，这正是 `storage.c` 所用的方式，也是 `config.yaml` 出厂时的 `hls_duration_s: 0`。打过补丁的副本位于 `3rdparty/media-server-local`，`cmake/MediaServer.cmake` 用它代替 submodule 中的文件进行编译，因此 submodule 永远不会显示为 dirty。版本升级后如何刷新它，见该目录下的 README。Release 构建定义了 `NDEBUG`，会把该断言编译掉，因此这只影响 `-DCMAKE_BUILD_TYPE=Debug` 构建，后者在录制一开始就会 abort。
+有一个文件没有原样使用。`hls_media_input()` 对 DTS 连续性的断言方式不允许 `duration == 0`——即"每个关键帧切一个分段"，这正是 `storage.c` 所用的方式，也是 `hls_duration_s` 默认值 0 所选的方式。打过补丁的副本位于 `3rdparty/media-server-local`，`cmake/MediaServer.cmake` 用它代替 submodule 中的文件进行编译，因此 submodule 永远不会显示为 dirty。版本升级后如何刷新它，见该目录下的 README。Release 构建定义了 `NDEBUG`，会把该断言编译掉，因此这只影响 `-DCMAKE_BUILD_TYPE=Debug` 构建，后者在录制一开始就会 abort。
 
 升级固定版本时，应匹配 `libmpeg/source`、`libmpeg/include` 和 `libhls/include` 的 tree hash，而不是单个文件。只匹配 `hls-media.c` 会选中 `8928fa5`，即这个很少改动的文件在上游的最新修订；在那个版本中，其余 48 个文件里有 20 个不同，生成的二进制文件小 8KB。在 `ea53ac6`，49 个被编译文件中有 48 个与之前 vendor 的副本逐字节相同。
 
@@ -276,16 +276,16 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 /oem/usr/bin/MotionSense                     the C daemon
 /oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
 /oem/usr/share/MotionSense/fonts/            OSD font
-/oem/usr/share/MotionSense/config.yaml       seed copy
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (from the board overlay)
 /etc/motionsense/board.json                  board file (from the board overlay)
-/mnt/sdcard/MotionSense/                     log, live config
+/mnt/sdcard/MotionSense/config.json          configuration
+/mnt/sdcard/MotionSense/motionsense.log      stderr of the vendor libraries
 /mnt/sdcard/MotionSense/agent.log            agent log
 /mnt/sdcard/DCIM/                            recordings
 ```
 
-字体和配置种子按相对于二进制文件的位置（`../share/MotionSense/`）查找，不用绝对路径。
+字体按相对于二进制文件的位置（`../share/MotionSense/fonts/`）查找，不用绝对路径。
 
 ### 板级文件
 
@@ -307,6 +307,35 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 文件不存在等同于空文件。这个文件属于镜像，放在板子的 `overlay-motionsense` 里，不属于应用：应用在每块板子上都相同。
 
+### 配置
+
+存储上 `MotionSense/` 目录里的 `config.json` 存放用户可以改的内容。文件不存在时守护进程按默认值写出一份，启动时读取一次。缺失的键取默认值。类型不对的值会被忽略，并在日志里留一条警告；文件不是合法 JSON 时保持原样不动，使用默认值。
+
+| 键 | 默认值 | 含义 |
+|---|---|---|
+| `h264.width`、`h264.height` | 1920、1080 | 录制分辨率 |
+| `h264.fps` | 30 | 录制流的传感器帧率 |
+| `h264.bitrate_kbps` | 4000 | |
+| `h264.gop` | 60 | 关键帧间隔，单位为帧 |
+| `mjpeg.width`、`mjpeg.height` | 1920、1080 | 实时画面分辨率 |
+| `mjpeg.fps` | 15 | |
+| `mjpeg.qfactor_max`、`mjpeg.qfactor_min` | 80、65 | JPEG 质量范围 |
+| `ivs.width`、`ivs.height` | 640、360 | 运动检测所用的分辨率 |
+| `ivs.fps` | 15 | |
+| `ivs.md_interval` | 4 | 每 N 帧分析一次 |
+| `ivs.md_sensibility` | 3 | 检测灵敏度，1 到 5 |
+| `ivs.md_night_mode` | true | |
+| `ivs.thresh_sad`、`ivs.thresh_move` | 40、2 | 检测阈值 |
+| `ivs.area_ratio` | 0.05 | 画面中有多大比例在动才算运动 |
+| `ivs.poll_ms` | 100 | 轮询检测结果的间隔 |
+| `ivs.fps_low`、`ivs.fps_high` | 1、30 | 无运动和有运动时的录制帧率 |
+| `ivs.motion_debounce_ms` | 1000 | 运动日志的采样间隔 |
+| `osd.font_size`、`osd.margin` | 36、16 | 像素 |
+| `osd.position` | `bottom-right` | `top-left`、`top-right`、`bottom-left` 或 `bottom-right` |
+| `storage.hls_duration_s` | 0 | 0 表示每个关键帧切一个分段；大于 0 时还要求攒够这么多秒 |
+| `storage.disk_free_min_mb` | 2048 | 剩余空间低于此值时删除最旧的日期 |
+| `storage.cleanup_every_ts` | 20 | 每隔多少个分段检查一次剩余空间 |
+
 二进制文件以 `RPATH=$ORIGIN/../lib` 链接，从 `/oem/usr/bin` 解析为 `/oem/usr/lib`。这覆盖了守护进程自身的 `NEEDED` 条目，但不覆盖传递依赖：`librockit.so` 需要 `librockchip_mpp.so.1` 和 `librga.so`，而解析某个库的依赖时不会参考可执行文件的 RPATH。因此 `S99motionsense` 导出 `LD_LIBRARY_PATH=/oem/usr/lib`。没有它，守护进程会在 exec 时以 `can't load library 'librockchip_mpp.so.1'` 退出。
 
 ### 时区
@@ -323,7 +352,7 @@ AWST-8
 
 时钟本身在启动时来自 RTC，之后来自 ntpd。RTC 电池耗尽时冷启动，第一个分段会以 ntpd 校正之前时钟里的任意日期记录。
 
-`S99motionsense` 从原厂 `rkipc` 应用接管摄像头，然后启动两个程序。两个程序各自等待存储，等多久都行：之后守护进程创建 `MotionSense/`，在没有配置时拷入种子配置，并把 vendor 库的 stderr 接到 `motionsense.log`。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
+`S99motionsense` 从原厂 `rkipc` 应用接管摄像头，然后启动两个程序。两个程序各自等待存储，等多久都行：之后守护进程创建 `MotionSense/`，在没有配置时写出 `config.json`，并把 vendor 库的 stderr 接到 `motionsense.log`。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
 
 两个进程通过 `CFG_SOCKET_PATH`（`/tmp/motionsense-stream.sock`）通信，该 socket 由 C 守护进程创建，agent 连接它获取 MJPEG 帧。它只在 `config.h` 中定义一次；两端都读取这个名称。录制不经过它，因此 socket 故障只会损失实时画面，不影响其他功能。
 
