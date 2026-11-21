@@ -22,6 +22,7 @@
 | `3rdparty/osd/*.c`、`*.h` | Rockchip Electronics Co., Ltd. | 3-clause BSD — `3rdparty/osd/LICENSE` |
 | `3rdparty/osd/DejaVuSansMono.ttf` | Bitstream, Inc.; DejaVu and Arev authors | Bitstream Vera + Arev — `3rdparty/osd/DejaVuSansMono.LICENSE` |
 | `agent/static/js/video-js-8.20.0/` | Brightcove / Video.js authors | Apache-2.0 |
+| `vendor/pcsim/sample/` | Blender Foundation, www.bigbuckbunny.org | CC BY 3.0。Big Buck Bunny 的十秒片段，由 `gen.sh` 重新编码。 |
 
 OSD 源文件在每个头部都引用了其许可证文件；该文件即 `3rdparty/osd/LICENSE`。
 

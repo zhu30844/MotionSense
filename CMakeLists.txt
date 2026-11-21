@@ -13,7 +13,9 @@ cmake_minimum_required(VERSION 3.13)
 #   2. $LF_TOOLCHAIN                 -> exported by the devcontainer
 #   3. ../../../tools/...            -> this tree's place inside the SDK
 # ------------------------------------------------------------------
-if(NOT DEFINED CMAKE_C_COMPILER)
+set(MS_PLATFORM "rockchip" CACHE STRING "rockchip, or pcsim to run on this machine")
+
+if(NOT DEFINED CMAKE_C_COMPILER AND NOT MS_PLATFORM STREQUAL "pcsim")
     if(DEFINED ENV{LF_TOOLCHAIN})
         set(MS_TOOLCHAIN "$ENV{LF_TOOLCHAIN}")
     else()
@@ -75,9 +77,16 @@ add_subdirectory(vendor/rga)
 add_subdirectory(vendor/rkaiq)
 add_subdirectory(vendor/rockit)
 
-# sqlite3, libyaml, libiconv and freetype come from the buildroot sysroot
-# rather than vendored source; see cmake/SystemLibs.cmake.
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemLibs.cmake)
+if(MS_PLATFORM STREQUAL "pcsim")
+    add_subdirectory(vendor/pcsim)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/HostLibs.cmake)
+    set(MS_MEDIA_LIBS pcsim)
+else()
+    # sqlite3, libyaml, libiconv and freetype come from the buildroot sysroot
+    # rather than vendored source; see cmake/SystemLibs.cmake.
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemLibs.cmake)
+    set(MS_MEDIA_LIBS rk::rockit rk::rkaiq)
+endif()
 
 # Still built from source: not distro packages, and patched/trimmed for us.
 # media-server is a pinned submodule; its build glue is ours, so it lives in
@@ -107,8 +116,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Threads::Threads
-    rk::rockit
-    rk::rkaiq
+    ${MS_MEDIA_LIBS}
     sqlite3::sqlite3
     media::hls
     osd::osd
@@ -138,7 +146,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.yaml DESTINATION ".")
 # Vendor shared libraries. Only needed for the standalone layout: under the
 # Luckfox SDK these already ship in /oem/usr/lib (build.sh copies media_out/lib
 # there), so a second copy would waste oem space and could drift from the SDK.
-if(NOT MS_RK_MEDIA_DIR)
+if(NOT MS_RK_MEDIA_DIR AND NOT MS_PLATFORM STREQUAL "pcsim")
     install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rockit/lib/librockit.so
         ${CMAKE_CURRENT_SOURCE_DIR}/vendor/rkaiq/lib/librkaiq.so
