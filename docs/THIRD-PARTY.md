@@ -1,6 +1,6 @@
 # Third-party components
 
-Last edited: 2026-09-05
+Last edited: 2026-11-21
 
 `../LICENSE` (MIT) covers the code written for this project. This file lists
 everything else in the tree and the terms it carries. Paths are relative to
@@ -35,7 +35,7 @@ draws an ASCII timestamp only.
 | Path | Owner | How it gets there |
 |---|---|---|
 | `3rdparty/media-server/` | ireader | MIT. Submodule pinned at `ea53ac6`. `3rdparty/media-server-local/hls-media.c` is one file of it carrying a local fix, under the same terms. |
-| `vendor/` | Rockchip Electronics Co., Ltd. | Not in this repository. Created by `scripts/sync-vendor.sh`, which extracts it from a Luckfox SDK checkout. |
+| `vendor/*/include/`, `vendor/*/lib/` | Rockchip Electronics Co., Ltd. | Not in this repository. Created by `scripts/sync-vendor.sh`, which extracts it from a Luckfox SDK checkout. |
 
 ## vendor/
 

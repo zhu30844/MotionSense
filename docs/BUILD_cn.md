@@ -2,7 +2,7 @@
 
 [English](BUILD.md) | 简体中文
 
-最后编辑：2026-10-24
+最后编辑：2026-11-21
 
 MotionSense 的目标硬件是 Luckfox Pico Pro Max（Rockchip RV1106，SPI NAND）。它作为 Luckfox SDK 内的一个应用进行构建，位于该 SDK 一个 fork 中的 `project/app/motionsense`：
 
@@ -197,7 +197,7 @@ cmake -S . -B build && cmake --build build -j
 
 工具链按以下顺序解析：显式的 `-DCMAKE_C_COMPILER`（SDK 构建会传入），然后是 `$LF_TOOLCHAIN`，再然后是相对于本目录树在 SDK 中位置的 `../../../tools/linux/toolchain/...`。工具链已不再 vendor 在本仓库中。
 
-独立构建还需要 `vendor/`，它不在仓库中——见下文 *Rockchip 库*。用以下命令填充一次：
+独立构建还需要 `vendor/` 下的 Rockchip 库，它们不在仓库中——见下文 *Rockchip 库*。用以下命令填充一次：
 
 ```bash
 ./scripts/sync-vendor.sh            # or: ./scripts/sync-vendor.sh <sdk-path>
@@ -242,7 +242,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 由 `MS_RK_MEDIA_DIR` 选择：设置时——SDK 的 `Makefile` 会设置——应用针对 `output/out/media_out` 构建，跟随 SDK 刚刚构建出的内容。未设置时，回退到 `vendor/`。
 
-`vendor/` 不在仓库中。`scripts/sync-vendor.sh` 会创建它，从 SDK 检出中提取库和头文件。它读取 `media/`，SDK 在那里以源码形式提供这些内容，因此一个普通的 SDK 克隆就足够，无需构建 SDK。
+`vendor/` 下的 Rockchip 库不在仓库中。`scripts/sync-vendor.sh` 会把它们拷入，从 SDK 检出中提取库和头文件。它读取 `media/`，SDK 在那里以源码形式提供这些内容，因此一个普通的 SDK 克隆就足够，无需构建 SDK。
 
 只有独立构建需要它。SDK 的应用构建读取 `output/out/media_out`。
 

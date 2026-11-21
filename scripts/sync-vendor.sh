@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copy Rockchip's media headers and libraries from an SDK checkout into vendor/.
+# Fill vendor/ with Rockchip's media headers and libraries from an SDK checkout.
 # Standalone builds only; the SDK app build uses MS_RK_MEDIA_DIR.
 set -euo pipefail
 
