@@ -4,19 +4,13 @@ BIN_DIR="/oem/usr/bin"
 LIB_DIR="/oem/usr/lib"
 DAEMON="$BIN_DIR/MotionSense"
 PIDFILE="/var/run/motionsense.pid"
-LOGFILE="/mnt/sdcard/MotionSense/motionsense.log"
 
-# Go agent: HTTP UI/API on :80 (:3000 when not root), reads frames from the
-# C daemon over /tmp/motionsense-stream.sock. Start order does not matter — it retries the socket
-# and treats a missing database as non-fatal — but it is started second so
-# its log does not interleave with the camera handover above.
+# Go agent: HTTP UI/API on :80 (:3000 when not root). Start order does not
+# matter: it retries the daemon's socket.
 AGENT="$BIN_DIR/motionsense-agent"
 AGENT_PIDFILE="/var/run/motionsense-agent.pid"
-AGENT_LOGFILE="/mnt/sdcard/MotionSense/agent.log"
 
-# Seeded to the SD card on first boot; the daemon reads CONFIG, not the seed.
-CONFIG="/mnt/sdcard/MotionSense/config.yaml"
-CONFIG_SEED="/oem/usr/share/MotionSense/config.yaml"
+# Both programs wait for storage themselves and keep their logs on it.
 
 case "$1" in
     start)
@@ -26,34 +20,14 @@ case "$1" in
         if [ ! -d /dev/mpi ]; then
             cd /oem/usr/ko && sh insmod_ko.sh >/dev/null 2>&1
         fi
-        # Wait for the sdcard to be mounted (config, recordings and log live there)
-        i=0
-        while ! grep -q " /mnt/sdcard " /proc/mounts; do
-            i=$((i + 1))
-            if [ "$i" -ge 30 ]; then
-                echo "S99motionsense: sdcard not mounted after 30s, aborting" >&2
-                exit 1
-            fi
-            sleep 1
-        done
-        # Ensure our sdcard dir exists: without it the 2>>$LOGFILE redirect below
-        # fails in the shell *before* exec, so MotionSense never starts and logs
-        # nothing (this is what silently broke boot autostart when config was absent).
-        mkdir -p "$(dirname "$LOGFILE")"
-        # Seed config.yaml on first run. Without it the daemon falls back to
-        # its compiled-in defaults, which works but leaves nothing to edit.
-        # Never overwrite: this is the copy the user tunes.
-        if [ ! -f "$CONFIG" ] && [ -f "$CONFIG_SEED" ]; then
-            cp "$CONFIG_SEED" "$CONFIG"
-        fi
         # LD_LIBRARY_PATH is required despite the binary's RPATH. The RPATH
         # ($ORIGIN/../lib) does resolve the daemon's own NEEDED entries, but
         # librockit.so in turn needs librockchip_mpp.so.1 and librga.so, and
         # resolving *its* dependencies does not consult the executable's
         # RPATH, so those come up "not found" and the daemon dies at exec.
-        start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c "exec env LD_LIBRARY_PATH=$LIB_DIR $DAEMON 2>>$LOGFILE"
+        start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c "exec env LD_LIBRARY_PATH=$LIB_DIR $DAEMON"
         if [ -x "$AGENT" ]; then
-            start-stop-daemon -S -b -m -p "$AGENT_PIDFILE" -x /bin/sh -- -c "exec $AGENT >>$AGENT_LOGFILE 2>&1"
+            start-stop-daemon -S -b -m -p "$AGENT_PIDFILE" -x "$AGENT"
         fi
         ;;
     stop)

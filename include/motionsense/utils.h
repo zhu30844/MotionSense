@@ -1,6 +1,7 @@
 #ifndef MOTIONSENSE_UTILS_H
 #define MOTIONSENSE_UTILS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -26,6 +27,12 @@ long long now_ms(void);
 /* Create `path` if it is missing. Returns 0 if it exists as a directory or was
  * created, -1 otherwise. */
 int ensure_dir(const char *path);
+
+/* Whether `path` is the root of a mounted filesystem. */
+bool is_mount_point(const char *path);
+
+/* Copy a file. Returns 0 on success, -1 on error. */
+int copy_file(const char *src, const char *dst);
 
 /* fsync the directory that contains `path`, so a preceding create/rename is
  * durable across power loss. Returns 0 on success, -1 on error. */

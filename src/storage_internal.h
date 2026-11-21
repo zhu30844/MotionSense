@@ -6,6 +6,7 @@
  * Not part of the public API — do not include outside these two files.
  */
 
+#include "motionsense/board.h"
 #include "motionsense/config.h"
 
 #include "sqlite3.h"
@@ -30,11 +31,11 @@ typedef struct hls_m3u8_t  hls_m3u8_t;
 #define DATE_STR_SIZE     16   /* "YYYY-MM-DD" + NUL (with slack) */
 #define TS_NAME_SIZE      16   /* "<NNNNN>.ts" + NUL (with slack) */
 
-#define DATE_DIR_SIZE     64   /* "<DCIM>/<date>/"                */
-#define SEGMENT_DIR_SIZE  96   /* "<DCIM>/<date>/<interrupt>/"    */
-#define DB_PATH_SIZE      96   /* full path to a per-day EventLogs.db */
-#define MEDIA_PATH_SIZE   160  /* full path to a .ts / .m3u8 file */
-#define TMP_PATH_SIZE     192  /* atomic-write temp: "<path>.tmp.XXXXXX" */
+#define DATE_DIR_SIZE     (MS_PATH_MAX + 48)   /* "<DCIM>/<date>/"             */
+#define SEGMENT_DIR_SIZE  (MS_PATH_MAX + 64)   /* "<DCIM>/<date>/<interrupt>/" */
+#define DB_PATH_SIZE      (MS_PATH_MAX + 64)   /* a per-day EventLogs.db       */
+#define MEDIA_PATH_SIZE   (MS_PATH_MAX + 96)   /* a .ts / .m3u8 file           */
+#define TMP_PATH_SIZE     (MS_PATH_MAX + 128)  /* "<path>.tmp.XXXXXX"          */
 
 /* ------------------------------------------------------------------ */
 /* Writer state (only the writer thread touches these)                */
@@ -44,7 +45,7 @@ typedef struct {
     char      date[DATE_STR_SIZE];      /* "YYYY-MM-DD" */
     int       day_of_year;
     int       interrupt_idx;             /* subfolder counter per day     */
-    char      date_dir[DATE_DIR_SIZE];   /* "/mnt/sdcard/DCIM/<date>/"    */
+    char      date_dir[DATE_DIR_SIZE];   /* "<DCIM>/<date>/"             */
     char      segment_dir[SEGMENT_DIR_SIZE]; /* ".../<date>/<interrupt>/" */
 
     /* HLS */

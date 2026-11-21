@@ -7,12 +7,12 @@
 /* ------------------------------------------------------------------ */
 /* Fixed paths (not user-configurable)                                */
 /* ------------------------------------------------------------------ */
-#define CFG_SDCARD_ROOT      "/mnt/sdcard"
-#define CFG_DCIM_ROOT        "/mnt/sdcard/DCIM/"
-#define CFG_VIDEO_META_DB    "/mnt/sdcard/DCIM/VideoMetadata.db"
+#define CFG_BOARD_FILE       "/etc/motionsense/board.json"
+#define CFG_STORAGE_ROOT     "/mnt/sdcard"   /* when the board file has none */
 #define CFG_ISP_IQ_DIR       "/etc/iqfiles"
-#define CFG_OSD_FONT_PATH    "/oem/usr/share/MotionSense/fonts/DejaVuSansMono.ttf"
-#define CFG_CONFIG_PATH      "/mnt/sdcard/MotionSense/config.yaml"
+/* Relative to the binary: /oem/usr/bin and /oem/usr/share on the board. */
+#define CFG_OSD_FONT_REL     "../share/MotionSense/fonts/DejaVuSansMono.ttf"
+#define CFG_CONFIG_SEED_REL  "../share/MotionSense/config.yaml"
 #define CFG_SOCKET_PATH      "/tmp/motionsense-stream.sock"
 
 /* ------------------------------------------------------------------ */

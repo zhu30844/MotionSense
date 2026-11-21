@@ -18,6 +18,7 @@
 
 BR2_PACKAGE_LIBYAML=y   # libyaml-0.so.2   -> yaml::yaml
 BR2_PACKAGE_SQLITE=y    # libsqlite3.so.0  -> sqlite3::sqlite3
+BR2_PACKAGE_CJSON=y     # libcjson.so.1    -> cjson::cjson
 
 # ntpd is disabled. The RTC on this board is battery-backed and keeps correct
 # time on its own — verified across a reboot, where the kernel set the system

@@ -82,7 +82,7 @@ if(MS_PLATFORM STREQUAL "pcsim")
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/HostLibs.cmake)
     set(MS_MEDIA_LIBS pcsim)
 else()
-    # sqlite3, libyaml, libiconv and freetype come from the buildroot sysroot
+    # sqlite3, libyaml, cjson, libiconv and freetype come from the buildroot sysroot
     # rather than vendored source; see cmake/SystemLibs.cmake.
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemLibs.cmake)
     set(MS_MEDIA_LIBS rk::rockit rk::rkaiq)
@@ -102,6 +102,7 @@ find_package(Threads REQUIRED)
 # ------------------------------------------------------------------
 add_executable(${PROJECT_NAME}
     src/main.c
+    src/board.c
     src/config.c
     src/frame_queue.c
     src/media.c
@@ -120,6 +121,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     sqlite3::sqlite3
     media::hls
     osd::osd
+    cjson::cjson
     yaml::yaml
 )
 

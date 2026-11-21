@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ftw.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -36,9 +37,42 @@ int ensure_dir(const char *path)
     return -1;
 }
 
+bool is_mount_point(const char *path)
+{
+    char parent[PATH_MAX];
+    struct stat st, pst;
+    snprintf(parent, sizeof(parent), "%s/..", path);
+    if (stat(path, &st) != 0 || stat(parent, &pst) != 0)
+        return false;
+    return st.st_dev != pst.st_dev;
+}
+
+int copy_file(const char *src, const char *dst)
+{
+    int in = open(src, O_RDONLY);
+    if (in < 0)
+        return -1;
+    int out = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (out < 0)
+    {
+        close(in);
+        return -1;
+    }
+    char buf[4096];
+    ssize_t n;
+    int rc = 0;
+    while ((n = read(in, buf, sizeof(buf))) > 0)
+        if (write_all(out, buf, (size_t)n) != 0) { rc = -1; break; }
+    if (n < 0)
+        rc = -1;
+    close(in);
+    close(out);
+    return rc;
+}
+
 int fsync_parent_dir(const char *path)
 {
-    char dir[160];
+    char dir[PATH_MAX];
     size_t len = strlen(path);
     if (len == 0 || len >= sizeof(dir))
         return -1;

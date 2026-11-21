@@ -226,7 +226,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 ### 通过 adb 推送到运行中的开发板
 
-`deploy.sh` 构建并推送二进制文件，无需重新烧录。它不推送任何库，因此设备上必须已有这些库。在改用 buildroot 提供的库之前构建的镜像中没有 `libsqlite3.so.0` 或 `libyaml-0.so.2`，守护进程将无法启动。在这类设备上烧录一次 `update.img`，之后 `deploy.sh` 即可使用。
+`deploy.sh` 构建并推送二进制文件，无需重新烧录。它不推送任何库，因此设备上必须已有这些库。在改用 buildroot 提供的库之前构建的镜像中没有 `libsqlite3.so.0`、`libyaml-0.so.2` 或 `libcjson.so.1`，守护进程将无法启动。在这类设备上烧录一次 `update.img`，之后 `deploy.sh` 即可使用。
 
 ---
 
@@ -235,7 +235,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 | 依赖 | 来源 | 所在位置 |
 |---|---|---|
 | `librockit`、`librkaiq`、`librockchip_mpp`、`librga` | `output/out/media_out`（SDK 构建） | `/oem/usr/lib` |
-| `libsqlite3`、`libyaml`、`libfreetype`、`libiconv` | buildroot sysroot | `/usr/lib`（rootfs） |
+| `libsqlite3`、`libyaml`、`libcjson`、`libfreetype`、`libiconv` | buildroot sysroot | `/usr/lib`（rootfs） |
 | `libhls`/`libmpeg`（`3rdparty/media-server`，submodule）、`libosd`（`3rdparty/osd`） | 从源码构建，静态 | 链接进二进制 |
 
 ### Rockchip 库
@@ -248,7 +248,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 该脚本复制四个 `.so` 文件及其头文件。它不复制 `.a` 归档或 `librockit_full/tiny.so`；没有任何东西链接它们。
 
-四个发行版库来自 `cmake/SystemLibs.cmake`，它从 buildroot sysroot 导入这些库，使用与 vendor 副本相同的 CMake target 名称（`sqlite3::sqlite3`、`yaml::yaml`、`freetype::freetype`、`iconv::iconv`）。
+发行版库来自 `cmake/SystemLibs.cmake`，它从 buildroot sysroot 导入这些库，使用与 vendor 副本相同的 CMake target 名称（`sqlite3::sqlite3`、`yaml::yaml`、`freetype::freetype`、`iconv::iconv`），另有 `cjson::cjson`。
 
 ### media-server
 
@@ -279,10 +279,33 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 /oem/usr/share/MotionSense/config.yaml       seed copy
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (from the board overlay)
+/etc/motionsense/board.json                  board file (from the board overlay)
 /mnt/sdcard/MotionSense/                     log, live config
 /mnt/sdcard/MotionSense/agent.log            agent log
 /mnt/sdcard/DCIM/                            recordings
 ```
+
+字体和配置种子按相对于二进制文件的位置（`../share/MotionSense/`）查找，不用绝对路径。
+
+### 板级文件
+
+`/etc/motionsense/board.json` 声明这块板子有什么。两个程序都读它；`MS_BOARD_FILE` 可以指定另一个文件，`scripts/pcsim.sh` 就是这样在 PC 上运行它们的。
+
+```json
+{
+  "storage": {
+    "root": "/mnt/sdcard",
+    "removable": true
+  }
+}
+```
+
+| 键 | 含义 | 缺失时 |
+|---|---|---|
+| `storage.root` | 录像、配置和日志的存放位置。`DCIM/` 和 `MotionSense/` 建在它下面。 | `/mnt/sdcard` |
+| `storage.removable` | 根目录是一个可能不存在的挂载点。挂载之前不写任何东西。 | `true` |
+
+文件不存在等同于空文件。这个文件属于镜像，放在板子的 `overlay-motionsense` 里，不属于应用：应用在每块板子上都相同。
 
 二进制文件以 `RPATH=$ORIGIN/../lib` 链接，从 `/oem/usr/bin` 解析为 `/oem/usr/lib`。这覆盖了守护进程自身的 `NEEDED` 条目，但不覆盖传递依赖：`librockit.so` 需要 `librockchip_mpp.so.1` 和 `librga.so`，而解析某个库的依赖时不会参考可执行文件的 RPATH。因此 `S99motionsense` 导出 `LD_LIBRARY_PATH=/oem/usr/lib`。没有它，守护进程会在 exec 时以 `can't load library 'librockchip_mpp.so.1'` 退出。
 
@@ -300,7 +323,7 @@ AWST-8
 
 时钟本身在启动时来自 RTC，之后来自 ntpd。RTC 电池耗尽时冷启动，第一个分段会以 ntpd 校正之前时钟里的任意日期记录。
 
-`S99motionsense` 启动前会等待 `/mnt/sdcard` 挂载（最多 30s），并先从原厂 `rkipc` 应用接管摄像头。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
+`S99motionsense` 从原厂 `rkipc` 应用接管摄像头，然后启动两个程序。两个程序各自等待存储，等多久都行：之后守护进程创建 `MotionSense/`，在没有配置时拷入种子配置，并把 vendor 库的 stderr 接到 `motionsense.log`。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
 
 两个进程通过 `CFG_SOCKET_PATH`（`/tmp/motionsense-stream.sock`）通信，该 socket 由 C 守护进程创建，agent 连接它获取 MJPEG 帧。它只在 `config.h` 中定义一次；两端都读取这个名称。录制不经过它，因此 socket 故障只会损失实时画面，不影响其他功能。
 
@@ -320,7 +343,7 @@ $ ls /mnt/sdcard/DCIM/$(date +%F)/00001/
 
 ### SD 卡
 
-**文件系统不得使用 `orphan_file`。** e2fsprogs 1.47 及更高版本默认启用它。它占用 ext4 ro_compat 第 16 位，而这个 5.10 内核不支持该特性，因此卡会以只读方式挂载，而要求读写挂载的自动挂载规则会失败。`/mnt/sdcard` 永远不会出现，`S99motionsense` 超时退出，两个守护进程都不会启动。要清除该特性，在 PC 上执行：
+**文件系统不得使用 `orphan_file`。** e2fsprogs 1.47 及更高版本默认启用它。它占用 ext4 ro_compat 第 16 位，而这个 5.10 内核不支持该特性，因此卡会以只读方式挂载，而要求读写挂载的自动挂载规则会失败。`/mnt/sdcard` 永远不会出现，守护进程一直等待存储而不录制。要清除该特性，在 PC 上执行：
 
 ```bash
 sudo e2fsck -f /dev/sdX1
@@ -378,7 +401,10 @@ project/cfg/BoardConfig_MotionSense_Pro_Max/
     ├── overlay-luckfox-config       -> symlink
     ├── overlay-luckfox-buildroot-init   -> symlink
     ├── overlay-luckfox-buildroot-shadow -> symlink
-    └── overlay-motionsense/etc/init.d/S99motionsense
+    └── overlay-motionsense/etc/
+        ├── init.d/S99motionsense
+        ├── motionsense/board.json
+        └── TZ
 
 sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense-pro-max.dts
 sysdrv/tools/board/buildroot/motionsense_defconfig
