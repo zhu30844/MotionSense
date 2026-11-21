@@ -1,7 +1,7 @@
 # Third-party libraries taken from the buildroot sysroot instead of being
 # built from vendored source.
 #
-# These four are ordinary distro packages; carrying our own copies meant
+# These are ordinary distro packages; carrying our own copies meant
 # compiling them on every build and shipping duplicates of libraries the
 # rootfs already had. They are enabled in
 # sysdrv/tools/board/buildroot/motionsense_defconfig, so buildroot both
@@ -55,6 +55,7 @@ endfunction()
 
 ms_import_syslib(ms_sqlite3  sqlite3)
 ms_import_syslib(ms_yaml     yaml)
+ms_import_syslib(ms_cjson    cjson)
 ms_import_syslib(ms_iconv    iconv)
 ms_import_syslib(ms_freetype freetype "${MS_SYSROOT}/usr/include/freetype2")
 
@@ -71,5 +72,6 @@ set_property(TARGET ms_freetype APPEND PROPERTY
 
 add_library(sqlite3::sqlite3   ALIAS ms_sqlite3)
 add_library(yaml::yaml         ALIAS ms_yaml)
-add_library(iconv::iconv       ALIAS ms_iconv)
+add_library(cjson::cjson       ALIAS ms_cjson)
+add_library(iconv::iconv      ALIAS ms_iconv)
 add_library(freetype::freetype ALIAS ms_freetype)

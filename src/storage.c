@@ -216,9 +216,14 @@ static void hls_flush_and_destroy(writer_state_t *ws)
 /* ------------------------------------------------------------------ */
 static int open_today(writer_state_t *ws)
 {
+    if (!ms_storage_present())
+    {
+        MS_LOG_ERROR("storage at %s is gone\n", g_board.storage_root);
+        return -1;
+    }
     today_string(ws->date, &ws->day_of_year);
-    snprintf(ws->date_dir, sizeof(ws->date_dir), "%s%s/", CFG_DCIM_ROOT, ws->date);
-    ensure_dir(CFG_DCIM_ROOT);
+    snprintf(ws->date_dir, sizeof(ws->date_dir), "%s%s/", g_board.dcim_root, ws->date);
+    ensure_dir(g_board.dcim_root);
     ensure_dir(ws->date_dir);
 
     ws->interrupt_idx = count_subdirs(ws->date_dir);
@@ -282,7 +287,7 @@ static void check_and_cleanup(writer_state_t *ws)
     /* Always continue pending deletion work, even if space looks healthy. */
     retention_process_tasks(ws, 1);
 
-    uint32_t free_mb = fs_free_mb(CFG_SDCARD_ROOT);
+    uint32_t free_mb = fs_free_mb(g_board.storage_root);
     if (free_mb >= g_cfg.storage.disk_free_min_mb)
         return;
 

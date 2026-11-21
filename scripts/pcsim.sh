@@ -4,16 +4,21 @@ set -euo pipefail
 APP=$(cd "$(dirname "$(realpath "$0")")/.." && pwd)
 OUT=$APP/build/pcsim
 
-# The paths in config.h are fixed, so they have to exist here too.
-sudo mkdir -p /mnt/sdcard/DCIM /mnt/sdcard/MotionSense /oem/usr/share/MotionSense/fonts
-sudo chown -R "$(id -u):$(id -g)" /mnt/sdcard
-sudo cp "$APP/3rdparty/osd/DejaVuSansMono.ttf" /oem/usr/share/MotionSense/fonts/
-
-cmake -S "$APP" -B "$OUT" -DMS_PLATFORM=pcsim >/dev/null
+# Same layout as /oem/usr: the daemon finds its files from where it is.
+cmake -S "$APP" -B "$OUT" -DMS_PLATFORM=pcsim \
+    -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUT/bin" >/dev/null
 cmake --build "$OUT" -j"$(nproc)" >/dev/null
-(cd "$APP/agent" && go build -buildvcs=false -o "$OUT/agent" .)
+(cd "$APP/agent" && go build -buildvcs=false -o "$OUT/bin/agent" .)
+install -D -m 644 -t "$OUT/share/MotionSense/fonts" "$APP/3rdparty/osd/DejaVuSansMono.ttf"
+install -m 644 -t "$OUT/share/MotionSense" "$APP/config.yaml"
+
+mkdir -p "$OUT/data"
+export MS_BOARD_FILE=$OUT/board.json
+cat >"$MS_BOARD_FILE" <<JSON
+{ "storage": { "root": "$OUT/data", "removable": false } }
+JSON
 
 trap 'kill $(jobs -p) 2>/dev/null' EXIT
-"$OUT/MotionSense" &
-"$OUT/agent" &
+"$OUT/bin/MotionSense" &
+"$OUT/bin/agent" &
 wait -n

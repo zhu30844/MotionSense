@@ -307,8 +307,8 @@ the socket reader retries.
 
 `deploy.sh` builds and pushes the binary without reflashing. It pushes no
 libraries, so the device must already carry them. Images built before the
-switch to buildroot-provided libraries have no `libsqlite3.so.0` or
-`libyaml-0.so.2`, and the daemon will not start. Flash `update.img` once on
+switch to buildroot-provided libraries have no `libsqlite3.so.0`,
+`libyaml-0.so.2` or `libcjson.so.1`, and the daemon will not start. Flash `update.img` once on
 such a device, after which `deploy.sh` works.
 
 ---
@@ -318,7 +318,7 @@ such a device, after which `deploy.sh` works.
 | Dependency | Source | Ships in |
 |---|---|---|
 | `librockit`, `librkaiq`, `librockchip_mpp`, `librga` | `output/out/media_out` (SDK build) | `/oem/usr/lib` |
-| `libsqlite3`, `libyaml`, `libfreetype`, `libiconv` | buildroot sysroot | `/usr/lib` (rootfs) |
+| `libsqlite3`, `libyaml`, `libcjson`, `libfreetype`, `libiconv` | buildroot sysroot | `/usr/lib` (rootfs) |
 | `libhls`/`libmpeg` (`3rdparty/media-server`, submodule), `libosd` (`3rdparty/osd`) | built from source, static | linked in |
 
 ### Rockchip libraries
@@ -337,10 +337,10 @@ Only standalone builds need it. The SDK app build reads `output/out/media_out`.
 The script copies the four `.so` files and their headers. It does not copy the
 `.a` archives or `librockit_full/tiny.so`; nothing links them.
 
-The four distro libraries come from `cmake/SystemLibs.cmake`, which imports
+The distro libraries come from `cmake/SystemLibs.cmake`, which imports
 them from the buildroot sysroot under the same CMake target names the
 vendored copies used (`sqlite3::sqlite3`, `yaml::yaml`, `freetype::freetype`,
-`iconv::iconv`).
+`iconv::iconv`), plus `cjson::cjson`.
 
 ### media-server
 
@@ -399,10 +399,38 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 /oem/usr/share/MotionSense/config.yaml       seed copy
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (from the board overlay)
+/etc/motionsense/board.json                  board file (from the board overlay)
 /mnt/sdcard/MotionSense/                     log, live config
 /mnt/sdcard/MotionSense/agent.log            agent log
 /mnt/sdcard/DCIM/                            recordings
 ```
+
+The font and the seed configuration are found relative to the binary
+(`../share/MotionSense/`), not by absolute path.
+
+### The board file
+
+`/etc/motionsense/board.json` states what the board has. Both programs read
+it; `MS_BOARD_FILE` names another file, which is how `scripts/pcsim.sh` runs
+them on a PC.
+
+```json
+{
+  "storage": {
+    "root": "/mnt/sdcard",
+    "removable": true
+  }
+}
+```
+
+| Key | Meaning | When missing |
+|---|---|---|
+| `storage.root` | Where recordings, configuration and logs go. `DCIM/` and `MotionSense/` are created under it. | `/mnt/sdcard` |
+| `storage.removable` | The root is a mount point that may be absent. Nothing is written until it is mounted. | `true` |
+
+A missing file is the same as an empty one. The file belongs to the image, in
+the board's `overlay-motionsense`, not to the app: the app is the same on
+every board.
 
 The binary is linked with `RPATH=$ORIGIN/../lib`, resolving to `/oem/usr/lib`
 from `/oem/usr/bin`. This covers the daemon's own `NEEDED` entries but not the
@@ -433,8 +461,10 @@ The clock itself comes from the RTC at boot and from ntpd afterwards. A cold
 start with a flat RTC battery records its first segment under whatever date
 the clock held before ntpd corrects it.
 
-`S99motionsense` waits for `/mnt/sdcard` to be mounted (up to 30s) before
-starting, and hands the camera over from the stock `rkipc` app first. The SD
+`S99motionsense` hands the camera over from the stock `rkipc` app and starts
+the two programs. Each waits for storage itself, for as long as it takes: the
+daemon then creates `MotionSense/`, copies the seed configuration if there is
+none, and sends the vendor libraries' stderr to `motionsense.log`. The SD
 card is auto-mounted by a udev rule shipped in the rootfs
 (`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`), covering
 vfat/exfat/ntfs/ext2/3/4.
@@ -464,8 +494,8 @@ $ ls /mnt/sdcard/DCIM/$(date +%F)/00001/
 **The filesystem must not use `orphan_file`.** e2fsprogs 1.47 and later enable
 it by default. It occupies ext4 ro_compat bit 16, which this 5.10 kernel does
 not support, so the card mounts read-only and the auto-mount rule — which asks
-for read-write — fails. `/mnt/sdcard` never appears and `S99motionsense` times
-out without starting either daemon. To clear it, on a PC:
+for read-write — fails. `/mnt/sdcard` never appears and the daemon waits for
+storage without recording. To clear it, on a PC:
 
 ```bash
 sudo e2fsck -f /dev/sdX1
@@ -536,7 +566,10 @@ project/cfg/BoardConfig_MotionSense_Pro_Max/
     ├── overlay-luckfox-config       -> symlink
     ├── overlay-luckfox-buildroot-init   -> symlink
     ├── overlay-luckfox-buildroot-shadow -> symlink
-    └── overlay-motionsense/etc/init.d/S99motionsense
+    └── overlay-motionsense/etc/
+        ├── init.d/S99motionsense
+        ├── motionsense/board.json
+        └── TZ
 
 sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense-pro-max.dts
 sysdrv/tools/board/buildroot/motionsense_defconfig

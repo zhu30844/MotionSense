@@ -84,7 +84,7 @@ static int db_exec(sqlite3 *db, const char *sql)
 /* ------------------------------------------------------------------ */
 int meta_db_init(writer_state_t *ws)
 {
-    if (db_open_rw(&ws->meta_db, CFG_VIDEO_META_DB, DB_SYNC_FULL) != 0) return -1;
+    if (db_open_rw(&ws->meta_db, g_board.meta_db, DB_SYNC_FULL) != 0) return -1;
 
     if (db_exec(ws->meta_db,
             "CREATE TABLE IF NOT EXISTS VideoMetadata ("
@@ -306,7 +306,7 @@ void retention_process_tasks(writer_state_t *ws, int budget)
         /* state=VM_STATE_PENDING already means Go won't serve this day.
          * Delete files first; if we crash here, the row stays PENDING
          * and the next startup will retry. */
-        snprintf(path, sizeof(path), "%s%s", CFG_DCIM_ROOT, date);
+        snprintf(path, sizeof(path), "%s%s", g_board.dcim_root, date);
         if (remove_path_tree(path) != 0) {
             MS_LOG_ERROR("cleanup: delete %s failed: %s\n", path, strerror(errno));
             return;

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/motionsense/agent/internal/board"
 	"github.com/motionsense/agent/internal/database"
 	"github.com/motionsense/agent/internal/server"
 	"github.com/motionsense/agent/internal/stream"
@@ -25,7 +26,6 @@ const (
 	portUnprivileged = ":3000"
 
 	socketPath      = "/tmp/motionsense-stream.sock"
-	dcimRoot        = "/mnt/sdcard/DCIM"
 	shutdownTimeout = 5 * time.Second
 )
 
@@ -59,6 +59,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	brd := board.Load()
+	logToStorage(ctx, brd)
+
 	// static files
 	sub, err := fs.Sub(frontendFiles, "static")
 	if err != nil {
@@ -69,6 +72,7 @@ func main() {
 	// fresh one the daemon has not written the database at all). Open always
 	// hands back a usable Storage that connects when the database appears, so
 	// the log line is a note and not a degraded mode.
+	dcimRoot := brd.DCIMRoot()
 	store, err := database.Open(dcimRoot)
 	if err != nil {
 		log.Printf("database not ready: %v — will connect when it appears", err)

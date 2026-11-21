@@ -14,6 +14,7 @@
 // App headers
 #include "motionsense/media.h"
 #include "motionsense/app_ctx.h"
+#include "motionsense/board.h"
 #include "motionsense/config.h"
 #include "motionsense/frame_queue.h"
 #include "motionsense/utils.h"
@@ -823,7 +824,9 @@ static void *osd_thread(void *arg)
 
 static int osd_init(void)
 {
-    if (create_font(CFG_OSD_FONT_PATH, g_cfg.osd.font_size) != 0)
+    char font[MS_PATH_MAX * 2];
+    if (ms_install_path(font, sizeof(font), CFG_OSD_FONT_REL) != 0 ||
+        create_font(font, g_cfg.osd.font_size) != 0)
     {
         MS_LOG_ERROR("create_font failed — OSD disabled\n");
         return -1;
