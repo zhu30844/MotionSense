@@ -9,11 +9,17 @@ branch.
 
 ## 2.0 milestone
 
+2.0 has no migration from 1.x: upgrading means reflashing the image and
+wiping the whole SD card. Recordings and configuration on it are not kept.
+
 ### Boards
 - [ ] A read-only board file in the image that states what the board has
       (replaces board detection). The user's `config.yaml` stays separate: it
       says what the user wants, the board file says what is there.
 - [ ] Modules start according to the board file and the user's configuration
+- [ ] The board file and the user's configuration are both JSON (replaces
+      `config.yaml`): programs will write the configuration once there is a
+      settings page, and JSON survives that unchanged
 - [ ] The storage location comes from the board file (replaces the fixed
       mount point), so an SD card and a USB drive are the same to the programs
 - [ ] Recording checks that storage is mounted before writing, so a missing
