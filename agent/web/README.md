@@ -22,6 +22,8 @@ pages only; `/api` is proxied to an agent, which has to be running:
 MS_AGENT=http://172.32.0.93 npm run dev      # or a board instead
 ```
 
+`../../ms sim` starts the simulator and the dev server together.
+
 If a page stops following your edits, see the note on inotify watches in the
 SDK README.
 
@@ -32,8 +34,9 @@ npm run build        # type-check, then write ../static/v2
 ```
 
 The agent embeds `agent/static`, so the next agent build serves the result at
-`/v2/`. The output is not tracked, and nothing builds it for you yet: an agent
-built without it has no `/v2/`.
+`/v2/`. The output is not tracked. Everything that builds the agent runs
+`scripts/build-web.sh` first: the SDK build, `scripts/pcsim.sh` and
+`ms deploy`. A bare `go build` does not, and embeds whatever is there.
 
 ## Checks
 

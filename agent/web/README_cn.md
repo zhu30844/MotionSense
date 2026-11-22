@@ -22,6 +22,8 @@ npm run dev          # http://localhost:5173/v2/
 MS_AGENT=http://172.32.0.93 npm run dev      # or a board instead
 ```
 
+`../../ms sim` 会把模拟器和开发服务器一起启动。
+
 如果页面不再跟随你的修改，见 SDK README 里关于 inotify 监视上限的说明。
 
 ## 构建
@@ -30,7 +32,7 @@ MS_AGENT=http://172.32.0.93 npm run dev      # or a board instead
 npm run build        # type-check, then write ../static/v2
 ```
 
-agent 嵌入的是 `agent/static`，所以下一次构建 agent 后就能在 `/v2/` 访问到。构建产物不进仓库，目前也没有任何流程会自动构建它：没有它时构建出的 agent 就没有 `/v2/`。
+agent 嵌入的是 `agent/static`，所以下一次构建 agent 后就能在 `/v2/` 访问到。构建产物不进仓库。所有构建 agent 的流程都会先运行 `scripts/build-web.sh`：SDK 构建、`scripts/pcsim.sh` 和 `ms deploy`。直接执行 `go build` 则不会，它嵌入的是目录里现有的内容。
 
 ## 检查
 

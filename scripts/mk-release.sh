@@ -66,6 +66,7 @@ if [ -z "$VERSION" ]; then
 fi
 case "$VERSION" in */*|*' '*|'') die "bad version '$VERSION'" ;; esac
 [ -n "$OUT" ] || OUT=$SDK/output/release
+command -v zip >/dev/null || die "zip not found"
 
 for f in update.img oem.img rootfs.img boot.img uboot.img idblock.img env.img userdata.img download.bin; do
     [ -s "$IMG_DIR/$f" ] || die "$IMG_DIR/$f missing or empty: run ./build.sh first"
@@ -130,17 +131,8 @@ fill "$HERE/release/SOURCES.md.in" "$TOP/SOURCES.md"
 
 (cd "$TOP" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort | xargs sha256sum > SHA256SUMS)
 
-# zip is not in the devcontainer image; python is everywhere we build.
-python3 - "$STAGE" "MotionSense-$VERSION" "$OUT/$NAME.zip" <<'PY'
-import os, sys, zipfile
-stage, top, dest = sys.argv[1:]
-with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-    for root, dirs, files in os.walk(os.path.join(stage, top)):
-        dirs.sort()
-        for f in sorted(files):
-            p = os.path.join(root, f)
-            z.write(p, os.path.relpath(p, stage))
-PY
+(cd "$STAGE" && find "MotionSense-$VERSION" -type f | LC_ALL=C sort |
+    zip -9 -X -q "$OUT/$NAME.zip" -@)
 (cd "$OUT" && sha256sum "$NAME.zip" > "$NAME.zip.sha256")
 
 echo "release bundle: $OUT/$NAME.zip"

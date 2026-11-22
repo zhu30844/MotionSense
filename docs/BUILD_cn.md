@@ -226,7 +226,19 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 ### 通过 adb 推送到运行中的开发板
 
-`deploy.sh` 构建并推送二进制文件，无需重新烧录。它不推送任何库，因此设备上必须已有这些库。在改用 buildroot 提供的库之前构建的镜像中没有 `libsqlite3.so.0` 或 `libcjson.so.1`，守护进程将无法启动。在这类设备上烧录一次 `update.img`，之后 `deploy.sh` 即可使用。
+仓库根目录下的 `ms` 收纳了日常命令。不带参数运行会列出全部：
+
+```
+./ms status     what is running, safe mode, boot count, storage, clock
+./ms logs       follow the system log, the agent's and the vendor libraries'
+./ms deploy     build both programs and the web pages, push them, restart
+./ms time       set the board's clock and RTC from this machine
+./ms sim        the simulator and the web dev server together
+```
+
+在主机上或 devcontainer 里都能用：在主机上启动时，它会把自己转到容器里去执行。adb 只在容器里使用，因为板子归先启动的那个 adb 服务端所有，主机上的服务端会让容器里的看不到板子。如果找不到板子，在主机上执行 `adb kill-server`。
+
+`ms deploy` 不推送任何库，因此设备上必须已有这些库。在改用 buildroot 提供的库之前构建的镜像中没有 `libsqlite3.so.0` 或 `libcjson.so.1`，守护进程将无法启动。在这类设备上烧录一次 `update.img`，之后 `ms deploy` 即可使用。
 
 ---
 
