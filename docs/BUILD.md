@@ -674,13 +674,40 @@ shift if board configs are added or removed.
 | Partition | Size | Used |
 |---|---|---|
 | boot | 4 MB | 3.55 MB |
-| oem | 60 MB | 9.75 MB |
+| oem | 60 MB | 16.25 MB |
 | userdata | 10 MB | 1.88 MB |
-| rootfs | 180 MB | 52.00 MB |
+| rootfs | 180 MB | 22.37 MB |
 
 Nothing validates images against partition sizes. An oversized image builds
 and flashes without complaint and fails at boot. `boot` has the least
 headroom at 11%; check it after adding kernel drivers.
+
+**A/B layout, planned for 2.0.** The table above leaves room for two copies of
+everything that is updated, which is what an update that can fall back needs.
+Changing the partition table means a reflash, and 2.0 already asks for one, so
+the layout is to be settled before 2.0 ships even if updating comes later.
+
+| Partition | Proposed |
+|---|---|
+| boot | 4 MB × 2 |
+| rootfs | 64 MB × 2 |
+| oem | 32 MB × 2 |
+| userdata | kept |
+| misc | new, small: which slot to boot and how many tries it has left |
+
+About 210 MB in all. Folding the app into rootfs would leave two pairs
+instead of three. What is known and what is not:
+
+- The SDK's own update path is a recovery image (`RK_ENABLE_RECOVERY`,
+  `update_ota.tar`), not A/B, and `build.sh` has nothing wired for slots.
+- This U-Boot has `CONFIG_ANDROID_AB`; the Luckfox defconfig sets only
+  `CONFIG_SPL_AB`. Whether it boots this board from SPI NAND with FIT images
+  is not tested. That is the first experiment: enable it, add `misc` and
+  `boot_a`/`boot_b`, and see whether U-Boot picks a slot.
+- Falling back needs the watchdog: a new system that hangs has to be reset
+  before U-Boot can count the failed try. The watchdog is in place.
+- The count of bad boots in `/userdata` (see *Supervision*) moves to where
+  U-Boot can read it.
 
 ### Device tree
 

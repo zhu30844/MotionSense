@@ -477,11 +477,28 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 | 分区 | 大小 | 已用 |
 |---|---|---|
 | boot | 4 MB | 3.55 MB |
-| oem | 60 MB | 9.75 MB |
+| oem | 60 MB | 16.25 MB |
 | userdata | 10 MB | 1.88 MB |
-| rootfs | 180 MB | 52.00 MB |
+| rootfs | 180 MB | 22.37 MB |
 
 没有任何环节会根据分区大小校验镜像。超大的镜像可以正常构建和烧录而不报任何错误，然后在启动时失败。`boot` 余量最小，为 11%；添加内核驱动后要检查它。
+
+**A/B 布局，计划在 2.0 中确定。** 从上表看，所有需要升级的内容都放得下两份，而可回退的升级正需要这一点。改分区表意味着重刷，2.0 本来就要求重刷一次，所以即使升级功能晚些再做，布局也要在 2.0 发布前定下来。
+
+| 分区 | 建议 |
+|---|---|
+| boot | 4 MB × 2 |
+| rootfs | 64 MB × 2 |
+| oem | 32 MB × 2 |
+| userdata | 保留 |
+| misc | 新增，很小：记录从哪个槽位启动、还剩几次尝试 |
+
+合计约 210 MB。把应用并入 rootfs 的话，三对可以减为两对。已知和未知的情况：
+
+- SDK 自带的升级方式是 recovery 镜像（`RK_ENABLE_RECOVERY`、`update_ota.tar`），不是 A/B，`build.sh` 里没有任何槽位相关的接线。
+- 这份 U-Boot 里有 `CONFIG_ANDROID_AB`；Luckfox 的 defconfig 只开了 `CONFIG_SPL_AB`。它能否在这块板子上从 SPI NAND 以 FIT 镜像启动，没有测过。这是第一个实验：打开它，加上 `misc` 和 `boot_a`/`boot_b`，看 U-Boot 是否会选槽位。
+- 回退依赖看门狗：新系统卡死时必须先被复位，U-Boot 才能记下这次失败的尝试。看门狗已经就位。
+- `/userdata` 里的失败启动计数（见*进程监管*）要移到 U-Boot 能读到的地方。
 
 ### 设备树
 

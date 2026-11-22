@@ -32,9 +32,17 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [x] Watchdog, fed by the recording process only: a hung page or agent is
       not a reason to reset the board
 
+### Updates
+- [ ] A partition table with two slots, settled before 2.0 ships: changing it
+      later means another reflash. See *Partitions* in
+      [BUILD.md](BUILD.md#partitions)
+- [ ] U-Boot picks a slot and falls back when the new one does not come up
+
 ### Front end
 - [ ] A redesigned front end on Vue and Vite
 - [ ] The same functions as the current pages
+- [ ] A log page, which also shows safe mode and the count of bad boots
+- [ ] The agent's routes follow [API.md](API.md)
 
 ### Recording
 - [ ] Better switching between motion and stillness, so an action is recorded
