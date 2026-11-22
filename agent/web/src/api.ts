@@ -1,5 +1,7 @@
 /** What GET /api/status returns. Raw values; null where the board cannot tell. */
 export interface DeviceStatus {
+  /** The tag the image was built from, or dev-<short sha>. */
+  version: string
   clients: number
   frameFlow: boolean
   /** The board's clock, RFC 3339. */

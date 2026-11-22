@@ -7,6 +7,8 @@ DIR=/userdata/update
 PKG=$DIR/update.tar
 # Where the agent puts an upload. The agent never deletes, so that is done here.
 INCOMING=$DIR/incoming.tar
+# Present while recovery is being rewritten, and after a power loss during it.
+PENDING=$DIR/recovery-pending
 BOARD_FILE=/etc/motionsense/board.json
 
 die() {
@@ -33,10 +35,13 @@ want=$(tar -xOf "$src" manifest 2>/dev/null | sed -n 's/^board=//p')
 
 tar -xOf "$src" SHA256SUMS > /tmp/ms-update.sums 2>/dev/null
 found=
+rest=
+new_recovery=
 while read -r sum file; do
     part=${file%.img}
     case "$part" in
-        boot|rootfs|oem) ;;
+        boot|rootfs|oem) rest=y ;;
+        recovery) new_recovery=$sum ;;
         *) die "package carries $file, which is never updated" ;;
     esac
     [ -n "$(mtd_of "$part")" ] || die "this board has no $part partition"
@@ -45,6 +50,31 @@ while read -r sum file; do
     found=y
 done < /tmp/ms-update.sums
 [ -n "$found" ] || die "package is empty"
+
+# recovery cannot rewrite itself, so it is written here, and only when it
+# differs. No mark is set yet: after a power loss the board boots as before.
+if [ -n "$new_recovery" ]; then
+    rec=/dev/$(mtd_of recovery)
+    size=$(tar -tvf "$src" recovery.img | awk '{print $3}')
+    on_flash() { nanddump -q -l "$size" "$rec" 2>/dev/null | sha256sum | cut -d' ' -f1; }
+    if [ "$(on_flash)" = "$new_recovery" ]; then
+        echo "ms-update: recovery is current"
+    else
+        mkdir -p "$DIR" && touch "$PENDING" && sync || die "cannot write to $DIR"
+        flash_eraseall "$rec" > /dev/null 2>&1 || die "cannot erase recovery"
+        tar -xOf "$src" recovery.img | nandwrite -p "$rec" - > /dev/null || die "cannot write recovery"
+        [ "$(on_flash)" = "$new_recovery" ] || die "recovery does not read back as written"
+        echo "ms-update: recovery written"
+    fi
+    rm -f "$PENDING"
+    sync
+    if [ -z "$rest" ]; then
+        [ "$src" = "$INCOMING" ] && rm -f "$INCOMING"
+        exit 0
+    fi
+fi
+# A mark with a half-written recovery would leave nothing to boot.
+[ -e "$PENDING" ] && die "recovery was not written completely: send a package that carries recovery"
 
 mkdir -p "$DIR"
 rm -f "$DIR/tries" "$DIR/result" "$DIR/recovery.log"

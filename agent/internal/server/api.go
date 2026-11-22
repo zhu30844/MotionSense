@@ -126,8 +126,12 @@ func memAvailable() (uint64, bool) {
 
 // statusResponse : device and app status. Values are raw, with the unit in
 // the name; the page formats them. What is unknown is null.
+// Version is set at build time, from scripts/version.sh.
+var Version = "dev"
+
 type statusResponse struct {
-	Clients int `json:"clients"`
+	Version string `json:"version"`
+	Clients int    `json:"clients"`
 	// True while frames are still arriving from the C daemon over the unix
 	// socket. This says the picture is live, not that the device is up: the
 	// agent answering this request is what says that. The page cannot infer
@@ -256,6 +260,7 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 			return
 		}
 		now := time.Now()
+		status.Version = Version
 		status.Time = now.Format(time.RFC3339)
 		status.Clients = broker.ClientCount()
 		// unix.Sysinfo_t's numeric fields are uint64 on 64-bit but uint32 on

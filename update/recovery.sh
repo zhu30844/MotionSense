@@ -86,6 +86,8 @@ while read -r want file; do
     # Never uboot: a power loss while writing it leaves no way back here.
     case "$part" in
         boot|rootfs|oem) ;;
+        # ms-update wrote it before setting the mark.
+        recovery) continue ;;
         *) finish "failed: package carries $file" ;;
     esac
     [ -e "$BY_NAME/$part" ] || finish "failed: no $part partition"

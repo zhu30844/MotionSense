@@ -18,7 +18,7 @@
 #              checked against it so a bundle cannot be labelled for one
 #              board and carry another's images.
 #   --slug     board name for the file name; default from the table below.
-#   --version  default: the tag on HEAD, else dev-<short sha>.
+#   --version  default: what scripts/version.sh prints, as the agent reports.
 #   --out      default: <sdk>/output/release
 set -euo pipefail
 
@@ -61,8 +61,7 @@ BUILT_BOARD=$(basename "$(dirname "$BUILT_CFG")")
 [ -n "$SLUG" ] || SLUG=$(slug_for "$BOARD")
 
 if [ -z "$VERSION" ]; then
-    VERSION=$(git -C "$APP_DIR" describe --tags --exact-match 2>/dev/null \
-              || echo "dev-$(git -C "$APP_DIR" rev-parse --short HEAD)")
+    VERSION=$("$HERE/version.sh")
 fi
 case "$VERSION" in */*|*' '*|'') die "bad version '$VERSION'" ;; esac
 [ -n "$OUT" ] || OUT=$SDK/output/release

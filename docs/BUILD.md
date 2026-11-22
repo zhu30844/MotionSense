@@ -727,12 +727,21 @@ build (`scripts/mk-release.sh` makes one beside the bundle):
 |---|---|
 | `manifest` | `board=` and `version=` lines |
 | `SHA256SUMS` | one line per image |
-| `boot.img`, `rootfs.img`, `oem.img` | any of the three; `--only oem` packs the app alone |
+| `recovery.img`, `boot.img`, `rootfs.img`, `oem.img` | all four by default, 47 MB; `--only oem` packs the app alone |
 
-Never `uboot` or `recovery`: losing power while either is written leaves a
-board that cannot get back into recovery. So `update/recovery.sh` cannot be
-changed on a board in the field, only by flashing over USB. Never `userdata`:
-it holds the configuration and the package itself.
+Never `uboot`: losing power while it is written leaves a board that cannot
+boot at all. Never `userdata`: it holds the configuration and the package
+itself.
+
+A package carries `recovery.img` too unless `--only` leaves it out. Recovery
+cannot rewrite itself, so `ms-update` handles it from the main system, before
+any mark is set: it reads the partition, and only if that differs from the
+image does it write and read back. Most updates therefore leave it alone. A
+power loss during the write costs nothing: the board boots as before. A file,
+`/userdata/update/recovery-pending`, stays behind in that case, and while it
+is there a package without `recovery.img` is refused: a mark with a broken
+recovery would leave nothing to boot. Any package that carries it, which
+every release package does, repairs the partition and goes on.
 
 How an update runs:
 
@@ -740,7 +749,7 @@ How an update runs:
    `/userdata/update/incoming.tar` and runs `ms-update`.
 2. `update/ms-update` checks that the board has `misc` and `recovery`, that
    the manifest names this board (`name` in the board file), that every
-   member is one of the three images and that the checksums match. It then
+   member is one of the four images and that the checksums match. It then
    moves the package to `update.tar`, clears the count of bad boots, writes
    `boot-recovery` 16 KB into `misc` and the board reboots. A package it
    turns down is removed and the reason goes back to the caller.
@@ -770,10 +779,6 @@ directory, here a symlink to `update/recovery.sh`. `RK_MISC` is
 `recovery-misc.img`, which sends the first boot into recovery with
 `--wipe_all`.
 
-Measured on the Pro Max with a 43 MB package of all three images: 21 seconds
-in recovery, about 100 seconds from the start of the upload until the main
-system is back.
-
 Tried on the board:
 
 - A complete update through the API; files put in `rootfs` and `oem`
@@ -784,6 +789,12 @@ Tried on the board:
   system boots untouched.
 - Power pulled while `rootfs` was being written: after power returned the
   flash started over and finished.
+- A package with a changed `recovery.img`: the partition read back as the
+  new image, and the new recovery then flashed the rest. With an unchanged
+  one the partition was left alone.
+- `recovery` erased with `recovery-pending` in place, as after a power loss
+  while it was written: the board booted, refused a package without
+  `recovery.img`, and a default package repaired it and updated.
 
 Not covered:
 
@@ -798,8 +809,8 @@ Not covered:
 - NAND only. The Ultra is eMMC: its table needs `misc` and `recovery`, the
   scripts need a branch that writes block devices, and it needs its own
   board file. Today it shares the Pro Max's, name included.
-- No page yet, and `/api/status` has no version to tell whether an update
-  took. The result file and the log are for looking at over adb.
+- No page yet. The `version` in `/api/status` tells whether an update took;
+  the result file and the log are for looking at over adb.
 
 ### Device tree
 
@@ -871,7 +882,9 @@ project/app/motionsense/scripts/mk-release.sh --version v1.1.0
 
 The zip is for flashing a board over USB. The tar is the update package for a running board, made by `scripts/mk-update.sh`; see *Updates*.
 
-The board defaults to whatever `.BoardConfig.mk` points at and is checked against `--board`, so one board's images cannot end up in another's bundle. The board slug in the file name comes from `slug_for()` in the script; a new board is one more line there. The version defaults to the tag on HEAD, else `dev-<short sha>`.
+The board defaults to whatever `.BoardConfig.mk` points at and is checked against `--board`, so one board's images cannot end up in another's bundle. The board slug in the file name comes from `slug_for()` in the script; a new board is one more line there.
+
+The version comes from `scripts/version.sh`: `$MS_VERSION` if set, else the tag on HEAD, else `dev-<short sha>`, with `-dirty` when there are uncommitted changes. Every build of the agent asks the same script and compiles the answer in, so `version` in `/api/status` is what the image was built from. The release workflow sets `MS_VERSION` for the build, because the tag is only placed on this repository when the release is published.
 
 The script also checks that the two binaries in `project/app/out/bin` are byte-identical to those in `output/out/oem/usr/bin` and that `oem.img` is not older than them. That targets one specific failure: when build_app dies part-way (no `go`, say), `./build.sh firmware` packages the empty `app_out` into oem and reports success, and the flashed board has no MotionSense.
 

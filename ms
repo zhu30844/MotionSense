@@ -109,7 +109,9 @@ cmd_deploy() {
 
     say "building the agent"
     (cd "$APP/agent" && GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 \
-        go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$out/motionsense-agent" .)
+        go build -trimpath -buildvcs=false \
+            -ldflags="-s -w -X github.com/motionsense/agent/internal/server.Version=$("$APP/scripts/version.sh")" \
+            -o "$out/motionsense-agent" .)
 
     say "stopping the service"
     adb shell "$INIT stop"
