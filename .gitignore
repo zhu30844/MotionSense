@@ -15,6 +15,11 @@ compile_commands.json
 *.out
 coverage.txt
 
+# --- Web front end (agent/web) ---
+/agent/web/node_modules/
+# `npm run build` output, embedded by the agent when present.
+/agent/static/v2/
+
 # --- IDE / editor ---
 .idea/
 .vscode/
