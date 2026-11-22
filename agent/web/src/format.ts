@@ -9,6 +9,10 @@ export function duration(seconds: number): string {
   return `${seconds}s`
 }
 
+export function percent(value: number | null): string {
+  return value === null ? '—' : `${Math.round(value)}%`
+}
+
 export function megabytes(bytes: number): string {
   return `${Math.round(bytes / 1048576)} MB`
 }
