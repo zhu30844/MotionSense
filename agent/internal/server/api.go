@@ -23,23 +23,23 @@ import (
 // The SoC's only thermal zone. Reads as millidegrees Celsius.
 const cpuTempPath = "/sys/class/thermal/thermal_zone0/temp"
 
-// readCPUTemp returns the SoC temperature formatted like "36.3°C", or "" if
-// the thermal zone cannot be read. A missing sensor is not worth failing the
+// readSocTemp returns the SoC temperature in degrees Celsius, or false if the
+// thermal zone cannot be read. A missing sensor is not worth failing the
 // whole status response over.
-func readCPUTemp() string {
+func readSocTemp() (float64, bool) {
 	raw, err := os.ReadFile(cpuTempPath)
 	if err != nil {
-		return ""
+		return 0, false
 	}
 	milli, err := strconv.Atoi(strings.TrimSpace(string(raw)))
 	if err != nil {
-		return ""
+		return 0, false
 	}
-	return fmt.Sprintf("%.1f°C", float64(milli)/1000.0)
+	return float64(milli) / 1000.0, true
 }
 
 // lastRecordDate returns the most recent day under dcimRoot that actually
-// holds video, formatted like "2026 Sep 4", or "" if there is none.
+// holds video, as YYYY-MM-DD, or "" if there is none.
 //
 // Deliberately a filesystem scan rather than a query against VideoMetadata:
 // a day row is written when recording starts, and the segment directory is
@@ -66,11 +66,7 @@ func lastRecordDate(dcimRoot string) string {
 
 	for _, name := range names {
 		if dayHasVideo(filepath.Join(dcimRoot, name)) {
-			t, err := time.Parse("2006-01-02", name)
-			if err != nil {
-				return ""
-			}
-			return t.Format("2006 Jan 2")
+			return name
 		}
 	}
 	return ""
@@ -128,25 +124,36 @@ func memAvailable() (uint64, bool) {
 	return 0, false
 }
 
-// statusResponse : device and app status
+// statusResponse : device and app status. Values are raw, with the unit in
+// the name; the page formats them. What is unknown is null.
 type statusResponse struct {
-	Clients      int    `json:"clients"`
-	SystemUptime string `json:"systemUptime"`
-	AppUptime    string `json:"appUptime"`
-	Totalram     uint64 `json:"totalram"`
-	// Memory the kernel would give to a new allocation, from MemAvailable.
-	// Not sysinfo's freeram, which excludes reclaimable page cache and so
-	// reads as 84% used on a device whose real figure is 20%.
-	Freeram  uint64  `json:"freeram"`
-	WorkLoad float64 `json:"workLoad"`
-	CpuTemp  string  `json:"cpuTemp"`
+	Clients int `json:"clients"`
 	// True while frames are still arriving from the C daemon over the unix
 	// socket. This says the picture is live, not that the device is up: the
 	// agent answering this request is what says that. The page cannot infer
 	// it from the <img>, which fires no event while a connection is open and
 	// silent.
-	FrameFlow  bool   `json:"frameFlow"`
-	LastRecord string `json:"lastRecord"`
+	FrameFlow          bool   `json:"frameFlow"`
+	Time               string `json:"time"` // the board's clock, RFC 3339
+	UptimeSeconds      int64  `json:"uptimeSeconds"`
+	AgentUptimeSeconds int64  `json:"agentUptimeSeconds"`
+	MemTotalBytes      uint64 `json:"memTotalBytes"`
+	// Memory the kernel would give to a new allocation, from MemAvailable.
+	// Not sysinfo's freeram, which excludes reclaimable page cache and so
+	// reads as 84% used on a device whose real figure is 20%.
+	MemAvailableBytes uint64   `json:"memAvailableBytes"`
+	Load1             float64  `json:"load1"`
+	SocTempCelsius    *float64 `json:"socTempCelsius"`
+	LastRecordingDate *string  `json:"lastRecordingDate"` // YYYY-MM-DD
+
+	// The same, as the hand-written pages read them. These go with those pages.
+	SystemUptime string  `json:"systemUptime"`
+	AppUptime    string  `json:"appUptime"`
+	Totalram     uint64  `json:"totalram"`
+	Freeram      uint64  `json:"freeram"`
+	WorkLoad     float64 `json:"workLoad"`
+	CpuTemp      string  `json:"cpuTemp"`
+	LastRecord   string  `json:"lastRecord"`
 }
 
 // DayRecordingResponse : response body for playback page
@@ -245,15 +252,16 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 			http.Error(w, "Get System Info failed", http.StatusInternalServerError)
 			return
 		}
-		status.AppUptime = time.Since(start).String()
+		now := time.Now()
+		status.Time = now.Format(time.RFC3339)
 		status.Clients = broker.ClientCount()
-		status.SystemUptime = (time.Duration(sysInfo.Uptime) * time.Second).String()
 		// unix.Sysinfo_t's numeric fields are uint64 on 64-bit but uint32 on
 		// 32-bit, which is what the RV1106 target is, so convert explicitly.
-		//
+		status.UptimeSeconds = int64(sysInfo.Uptime)
+		status.AgentUptimeSeconds = int64(now.Sub(start).Seconds())
 		// Loads are fixed point with 16 fractional bits; dividing as an
 		// integer reported 0 for every load average below 1.00.
-		status.WorkLoad = float64(sysInfo.Loads[0]) / 65536.0
+		status.Load1 = float64(sysInfo.Loads[0]) / 65536.0
 
 		// Totalram and Freeram are counts of Unit bytes, not bytes. Unit is 1
 		// on Linux today, so this changes nothing here, but the field is
@@ -262,19 +270,33 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		if unit == 0 {
 			unit = 1
 		}
-		status.Totalram = uint64(sysInfo.Totalram) * unit
-		status.Freeram = uint64(sysInfo.Freeram) * unit
+		status.MemTotalBytes = uint64(sysInfo.Totalram) * unit
+		status.MemAvailableBytes = uint64(sysInfo.Freeram) * unit
 		if avail, ok := memAvailable(); ok {
-			status.Freeram = avail
+			status.MemAvailableBytes = avail
 		}
-		status.CpuTemp = readCPUTemp()
-		status.LastRecord = lastRecordDate(dcimRoot)
+		if temp, ok := readSocTemp(); ok {
+			status.SocTempCelsius = &temp
+			status.CpuTemp = fmt.Sprintf("%.1f°C", temp)
+		}
+		if day := lastRecordDate(dcimRoot); day != "" {
+			status.LastRecordingDate = &day
+			if t, err := time.Parse("2006-01-02", day); err == nil {
+				status.LastRecord = t.Format("2006 Jan 2")
+			}
+		}
 
 		// Two seconds is comfortably longer than a frame interval at the
 		// lowest capture rate this records at.
 		if age := broker.SecondsSinceFrame(); age >= 0 && age < 2 {
 			status.FrameFlow = true
 		}
+
+		status.SystemUptime = (time.Duration(status.UptimeSeconds) * time.Second).String()
+		status.AppUptime = now.Sub(start).String()
+		status.Totalram = status.MemTotalBytes
+		status.Freeram = status.MemAvailableBytes
+		status.WorkLoad = status.Load1
 
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(status)
