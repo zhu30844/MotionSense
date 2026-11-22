@@ -33,10 +33,11 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       not a reason to reset the board
 
 ### Updates
-- [ ] A partition table with two slots, settled before 2.0 ships: changing it
-      later means another reflash. See *Partitions* in
-      [BUILD.md](BUILD.md#partitions)
-- [ ] U-Boot picks a slot and falls back when the new one does not come up
+- [ ] A partition table with `misc`, `recovery` and a `userdata` that holds an
+      update package, settled before 2.0 ships: changing it later means
+      another reflash. See *Partitions* in [BUILD.md](BUILD.md#partitions)
+- [ ] Updating through recovery: an uploaded package is flashed after a
+      reboot, and a flash interrupted by a power loss starts over
 
 ### Front end
 - [ ] A redesigned front end on Vue and Vite

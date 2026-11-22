@@ -483,22 +483,36 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 
 没有任何环节会根据分区大小校验镜像。超大的镜像可以正常构建和烧录而不报任何错误，然后在启动时失败。`boot` 余量最小，为 11%；添加内核驱动后要检查它。
 
-**A/B 布局，计划在 2.0 中确定。** 从上表看，所有需要升级的内容都放得下两份，而可回退的升级正需要这一点。改分区表意味着重刷，2.0 本来就要求重刷一次，所以即使升级功能晚些再做，布局也要在 2.0 发布前定下来。
+**2.0 的布局，带一个 recovery 分区。** 升级走 recovery 镜像，不做 A/B。改分区表意味着重刷，2.0 本来就要求重刷一次，所以即使升级功能晚些再做，布局也要在 2.0 发布前定下来。
 
-| 分区 | 建议 |
-|---|---|
-| boot | 4 MB × 2 |
-| rootfs | 64 MB × 2 |
-| oem | 32 MB × 2 |
-| userdata | 保留 |
-| misc | 新增，很小：记录从哪个槽位启动、还剩几次尝试 |
+| 分区 | 现在 | 建议 |
+|---|---|---|
+| env、idblock、uboot | 256K、256K、512K | 不变 |
+| misc | 无 | 512K：让下次启动进入 recovery 的标记 |
+| boot | 4 MB | 6 MB：屏幕驱动会让内核变大 |
+| recovery | 无 | 8 MB：一个内核加一个 busybox 小系统，负责刷写升级包 |
+| rootfs | 180 MB | 48 MB |
+| oem | 60 MB | 64 MB |
+| userdata | 10 MB | 剩下的全部，约 127 MB：存放升级包 |
 
-合计约 210 MB。把应用并入 rootfs 的话，三对可以减为两对。已知和未知的情况：
+一次升级的过程：
 
-- SDK 自带的升级方式是 recovery 镜像（`RK_ENABLE_RECOVERY`、`update_ota.tar`），不是 A/B，`build.sh` 里没有任何槽位相关的接线。
-- 这份 U-Boot 里有 `CONFIG_ANDROID_AB`；Luckfox 的 defconfig 只开了 `CONFIG_SPL_AB`。它能否在这块板子上从 SPI NAND 以 FIT 镜像启动，没有测过。这是第一个实验：打开它，加上 `misc` 和 `boot_a`/`boot_b`，看 U-Boot 是否会选槽位。
-- 回退依赖看门狗：新系统卡死时必须先被复位，U-Boot 才能记下这次失败的尝试。看门狗已经就位。
-- `/userdata` 里的失败启动计数（见*进程监管*）要移到 U-Boot 能读到的地方。
+1. 用户上传升级包；系统把它存到 `/userdata`，在 `misc` 里写上 `boot-recovery`，然后重启。
+2. U-Boot 看到标记，启动 `recovery` 而不是 `boot`。
+3. recovery 把包里的每个分区写进去，最后一个写完才清掉标记，再重启进新系统。
+4. 中途掉电时标记还在：下次开机仍进 recovery，从头再刷一遍。
+
+为什么不做 A/B：不需要回到旧版本。新版本可能已经改了数据库，退回去就得让旧版本读得懂它。旧系统唯一的用处是把中断的升级刷完，而 recovery 用每个分区一份就能做到，没有槽位，也不用改 U-Boot 去选槽位。
+
+已知和未知的情况：
+
+- SDK 里这条路是接好的：`RK_ENABLE_RECOVERY` 构建 `recovery.img` 并生成 `RK_OTA_update.sh`，`./build.sh ota` 打出 `update_ota.tar`，U-Boot 的 FIT 路径在 `misc` 有标记时启动 `recovery`。这些都没有在这块板子上构建或运行过。板级配置里要定义 `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`；`recovery.img` 的大小没有量过，8 MB 是按 `boot.img` 的 3.55 MB 估的。
+- 升级包里是 `boot`、`rootfs` 和 `oem`，用 `RK_OTA_RESOURCE` 指定；默认的列表里有 `uboot`、没有 `oem`。`uboot` 不进包：写它的时候掉电，板子就进不了 recovery。`userdata` 也不进包，因为配置和升级包本身都在里面。
+- 所有板子都把升级包放在 `/userdata`，所以升级既不需要卡也不需要 U 盘。`RkLunch-recovery.sh` 默认解包到升级包旁边，空间要翻倍；它的第二个参数可以把解包目录改到内存里。
+- 每个 UBI 分区有 10-13 MB 被坏块预留和文件系统自身占掉，和分区大小无关。板子上实测：`oem` 的 60 MB 里可用 47 MB，`userdata` 的 10 MB 里可用 2.2 MB。按建议的大小，`rootfs` 大约可用 36 MB（已用 18.9 MB），`oem` 52 MB（已用 14.7 MB），`userdata` 115 MB；这三个数是估算。
+- `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 94 MB。
+- 完整刷完却仍然起不来的新系统不在这套方案的范围内：那需要通过 USB 重刷。
+- Ultra 是 eMMC，空间充裕；它的分区表同样需要 `misc` 和 `recovery`。
 
 ### 设备树
 
