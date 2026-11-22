@@ -682,32 +682,63 @@ Nothing validates images against partition sizes. An oversized image builds
 and flashes without complaint and fails at boot. `boot` has the least
 headroom at 11%; check it after adding kernel drivers.
 
-**A/B layout, planned for 2.0.** The table above leaves room for two copies of
-everything that is updated, which is what an update that can fall back needs.
-Changing the partition table means a reflash, and 2.0 already asks for one, so
-the layout is to be settled before 2.0 ships even if updating comes later.
+**Layout for 2.0, with a recovery partition.** Updates will go through a
+recovery image, not A/B. Changing the partition table means a reflash, and 2.0
+already asks for one, so the layout is to be settled before 2.0 ships even if
+updating comes later.
 
-| Partition | Proposed |
-|---|---|
-| boot | 4 MB × 2 |
-| rootfs | 64 MB × 2 |
-| oem | 32 MB × 2 |
-| userdata | kept |
-| misc | new, small: which slot to boot and how many tries it has left |
+| Partition | Now | Proposed |
+|---|---|---|
+| env, idblock, uboot | 256K, 256K, 512K | unchanged |
+| misc | none | 512K: the mark that sends the next boot into recovery |
+| boot | 4 MB | 6 MB: display drivers will grow the kernel |
+| recovery | none | 8 MB: a kernel and a busybox system that flashes the package |
+| rootfs | 180 MB | 48 MB |
+| oem | 60 MB | 64 MB |
+| userdata | 10 MB | the rest, about 127 MB: holds the update package |
 
-About 210 MB in all. Folding the app into rootfs would leave two pairs
-instead of three. What is known and what is not:
+How an update runs:
 
-- The SDK's own update path is a recovery image (`RK_ENABLE_RECOVERY`,
-  `update_ota.tar`), not A/B, and `build.sh` has nothing wired for slots.
-- This U-Boot has `CONFIG_ANDROID_AB`; the Luckfox defconfig sets only
-  `CONFIG_SPL_AB`. Whether it boots this board from SPI NAND with FIT images
-  is not tested. That is the first experiment: enable it, add `misc` and
-  `boot_a`/`boot_b`, and see whether U-Boot picks a slot.
-- Falling back needs the watchdog: a new system that hangs has to be reset
-  before U-Boot can count the failed try. The watchdog is in place.
-- The count of bad boots in `/userdata` (see *Supervision*) moves to where
-  U-Boot can read it.
+1. The user uploads a package; the system stores it in `/userdata`, writes
+   `boot-recovery` to `misc` and reboots.
+2. U-Boot sees the mark and boots `recovery` instead of `boot`.
+3. Recovery writes each partition from the package, clears the mark only
+   after the last one, and reboots into the new system.
+4. If power is lost on the way, the mark is still there: the next boot enters
+   recovery again and flashes from the start.
+
+Why not A/B: there is no wish to go back to the old version. A new version
+may have changed the database, and the old one would then have to read it. The
+only thing the old system was wanted for is finishing an interrupted update,
+and recovery does that with one copy of each partition, no slots and no
+U-Boot changes for choosing between them.
+
+What is known and what is not:
+
+- The SDK has this path wired: `RK_ENABLE_RECOVERY` builds `recovery.img` and
+  generates `RK_OTA_update.sh`, `./build.sh ota` packs `update_ota.tar`, and
+  U-Boot's FIT path boots `recovery` when `misc` says so. None of it has been
+  built or run on this board. The board config needs
+  `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`, and the size of `recovery.img` is
+  not measured: 8 MB is a guess from the 3.55 MB of `boot.img`.
+- The package is `boot`, `rootfs` and `oem`, set with `RK_OTA_RESOURCE`; the
+  default list has `uboot` and no `oem`. `uboot` stays out: losing power while
+  it is written leaves a board that cannot reach recovery. `userdata` stays
+  out too, since it holds the configuration and the package itself.
+- The package lives in `/userdata` on every board, so an update needs neither
+  a card nor a USB drive. `RkLunch-recovery.sh` unpacks beside the package by
+  default, which doubles the space; its second argument moves that to RAM.
+- Each UBI partition loses 10-13 MB to bad-block reserve and the file system,
+  whatever its size. Measured on the board: 47 MB usable of `oem`'s 60 MB,
+  2.2 MB of `userdata`'s 10 MB. The proposed sizes should leave about 36 MB
+  in `rootfs` (18.9 MB used), 52 MB in `oem` (14.7 MB used) and 115 MB in
+  `userdata`; these three are estimates.
+- `userdata` is sized so that the largest possible package, with `boot`,
+  `rootfs` and `oem` all full at about 94 MB, still fits.
+- A new system that is flashed completely and still does not boot is not
+  covered: that needs a reflash over USB.
+- The Ultra is eMMC and has room to spare; its table needs the same `misc`
+  and `recovery`.
 
 ### Device tree
 
