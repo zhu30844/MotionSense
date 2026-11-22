@@ -25,7 +25,7 @@ adb reboot loader                       # put the board in maskrom/loader mode
 ./rkflash.sh update
 ```
 
-`upgrade_tool` 在某些主机上会段错误，而在 devcontainer 内运行正常，所以如果 `./rkflash.sh` 崩溃，就在 devcontainer 内烧录。`rkflash.sh` 的单分区目标（`boot`、`rootfs` 等）不会先上传 loader，会以 "parameter is invalid" 失败；`update` 才是可用的路径。
+`upgrade_tool` 在某些主机上会段错误，而在 devcontainer 内运行正常，所以如果 `./rkflash.sh` 崩溃，就在 devcontainer 内烧录。打不开板子时它同样会段错误：Maskrom 模式下的 USB 节点是 `root:root` 0664，除非主机上有 udev 规则，所以 devcontainer 里的 `dev` 在 `root` 组里。`rkflash.sh` 的单分区目标（`boot`、`rootfs` 等）不会先上传 loader，会以 "parameter is invalid" 失败；`update` 才是可用的路径。
 
 镜像为 `output/image/update.img`，另有一份带时间戳的副本位于 `IMAGE/IPC_SPI_NAND_BUILDROOT_RV1106_MOTIONSENSE_<date>_RELEASE_TEST/`。
 
@@ -469,31 +469,32 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 ### 分区
 
 ```
-256K(env) 256K(idblock) 512K(uboot) 4M(boot) 60M(oem) 10M(userdata) 180M(rootfs)
+256K(env) 256K(idblock) 512K(uboot) 512K(misc) 6M(boot) 8M(recovery) 48M(rootfs) 64M(oem) 130560K(userdata)
 ```
 
-占用 256MB SPI NAND 中的 255MB。最近的占用情况：
+占用 256MB SPI NAND 中的 255MB。板子上实测：
 
-| 分区 | 大小 | 已用 |
-|---|---|---|
-| boot | 4 MB | 3.55 MB |
-| oem | 60 MB | 16.25 MB |
-| userdata | 10 MB | 1.88 MB |
-| rootfs | 180 MB | 22.37 MB |
+| 分区 | 大小 | 可用 | 已用 |
+|---|---|---|---|
+| boot | 6 MB | 6 MB | 3.55 MB |
+| rootfs | 48 MB | 36.3 MB | 18.9 MB |
+| oem | 64 MB | 50.5 MB | 13.3 MB |
+| userdata | 127.5 MB | 107.4 MB | 0.03 MB |
 
-没有任何环节会根据分区大小校验镜像。超大的镜像可以正常构建和烧录而不报任何错误，然后在启动时失败。`boot` 余量最小，为 11%；添加内核驱动后要检查它。
+一个 UBI 分区有 12 到 20 MB 被坏块预留和文件系统自身占掉，分区越大占得越多。`misc` 和 `recovery` 还没有镜像，所以 `mk-update_pack.sh` 会为它们各打印一条 `Not found image file` 错误，并且不把它们放进 `update.img`。
 
-**2.0 的布局，带一个 recovery 分区。** 升级走 recovery 镜像，不做 A/B。改分区表意味着重刷，2.0 本来就要求重刷一次，所以即使升级功能晚些再做，布局也要在 2.0 发布前定下来。
+没有任何环节会根据分区大小校验镜像。超大的镜像可以正常构建和烧录而不报任何错误，然后在启动时失败。
 
-| 分区 | 现在 | 建议 |
-|---|---|---|
-| env、idblock、uboot | 256K、256K、512K | 不变 |
-| misc | 无 | 512K：让下次启动进入 recovery 的标记 |
-| boot | 4 MB | 6 MB：屏幕驱动会让内核变大 |
-| recovery | 无 | 8 MB：一个内核加一个 busybox 小系统，负责刷写升级包 |
-| rootfs | 180 MB | 48 MB |
-| oem | 60 MB | 64 MB |
-| userdata | 10 MB | 剩下的全部，约 127 MB：存放升级包 |
+**这个布局是为通过 recovery 升级准备的**，不做 A/B。升级功能还没有实现；先把分区表定下来，是因为改它意味着重刷，而 2.0 本来就要求重刷一次。
+
+| 分区 | 为什么是这个大小 |
+|---|---|
+| misc | 存放让下次启动进入 recovery 的标记 |
+| boot | 6 MB 而不是 4 MB：屏幕驱动会让内核变大 |
+| recovery | 一个内核加一个 busybox 小系统，负责刷写升级包 |
+| rootfs | 现在用量的两倍；只有 buildroot 的包会装到这里 |
+| oem | 应用，以及给屏幕进程、字体和模型留的空间 |
+| userdata | 剩下的全部：存放升级包 |
 
 一次升级的过程：
 
@@ -509,8 +510,8 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 - SDK 里这条路是接好的：`RK_ENABLE_RECOVERY` 构建 `recovery.img` 并生成 `RK_OTA_update.sh`，`./build.sh ota` 打出 `update_ota.tar`，U-Boot 的 FIT 路径在 `misc` 有标记时启动 `recovery`。这些都没有在这块板子上构建或运行过。板级配置里要定义 `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`；`recovery.img` 的大小没有量过，8 MB 是按 `boot.img` 的 3.55 MB 估的。
 - 升级包里是 `boot`、`rootfs` 和 `oem`，用 `RK_OTA_RESOURCE` 指定；默认的列表里有 `uboot`、没有 `oem`。`uboot` 不进包：写它的时候掉电，板子就进不了 recovery。`userdata` 也不进包，因为配置和升级包本身都在里面。
 - 所有板子都把升级包放在 `/userdata`，所以升级既不需要卡也不需要 U 盘。`RkLunch-recovery.sh` 默认解包到升级包旁边，空间要翻倍；它的第二个参数可以把解包目录改到内存里。
-- 每个 UBI 分区有 10-13 MB 被坏块预留和文件系统自身占掉，和分区大小无关。板子上实测：`oem` 的 60 MB 里可用 47 MB，`userdata` 的 10 MB 里可用 2.2 MB。按建议的大小，`rootfs` 大约可用 36 MB（已用 18.9 MB），`oem` 52 MB（已用 14.7 MB），`userdata` 115 MB；这三个数是估算。
-- `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 94 MB。
+- `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
+- 板级配置里有 `RK_MISC=wipe_all-misc.img`，打开 recovery 的构建会把它当作 `misc.img` 烧进去。从名字看，它会在首次启动时清空数据分区；启用 recovery 之前要先确认它的行为。
 - 完整刷完却仍然起不来的新系统不在这套方案的范围内：那需要通过 USB 重刷。
 - Ultra 是 eMMC，空间充裕；它的分区表同样需要 `misc` 和 `recovery`。
 
