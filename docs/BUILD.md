@@ -28,7 +28,10 @@ adb reboot loader                       # put the board in maskrom/loader mode
 ```
 
 `upgrade_tool` segfaults on some hosts and runs correctly inside the
-devcontainer, so flash from there if `./rkflash.sh` dies. `rkflash.sh`'s
+devcontainer, so flash from there if `./rkflash.sh` dies. It also segfaults
+when it cannot open the board: in Maskrom mode the USB node is `root:root`
+0664 unless the host has a udev rule, which is why `dev` in the devcontainer
+is in group `root`. `rkflash.sh`'s
 single-partition targets (`boot`, `rootfs`, ...) do not upload the loader
 first and fail with "parameter is invalid"; `update` is the working path.
 
@@ -666,36 +669,38 @@ shift if board configs are added or removed.
 ### Partitions
 
 ```
-256K(env) 256K(idblock) 512K(uboot) 4M(boot) 60M(oem) 10M(userdata) 180M(rootfs)
+256K(env) 256K(idblock) 512K(uboot) 512K(misc) 6M(boot) 8M(recovery) 48M(rootfs) 64M(oem) 130560K(userdata)
 ```
 
-255MB of the 256MB SPI NAND. Recent occupancy:
+255MB of the 256MB SPI NAND. Measured on the board:
 
-| Partition | Size | Used |
-|---|---|---|
-| boot | 4 MB | 3.55 MB |
-| oem | 60 MB | 16.25 MB |
-| userdata | 10 MB | 1.88 MB |
-| rootfs | 180 MB | 22.37 MB |
+| Partition | Size | Usable | Used |
+|---|---|---|---|
+| boot | 6 MB | 6 MB | 3.55 MB |
+| rootfs | 48 MB | 36.3 MB | 18.9 MB |
+| oem | 64 MB | 50.5 MB | 13.3 MB |
+| userdata | 127.5 MB | 107.4 MB | 0.03 MB |
+
+A UBI partition loses 12 to 20 MB to the bad-block reserve and the file
+system, more as it grows. `misc` and `recovery` have no image yet, so
+`mk-update_pack.sh` prints a `Not found image file` error for each and leaves
+them out of `update.img`.
 
 Nothing validates images against partition sizes. An oversized image builds
-and flashes without complaint and fails at boot. `boot` has the least
-headroom at 11%; check it after adding kernel drivers.
+and flashes without complaint and fails at boot.
 
-**Layout for 2.0, with a recovery partition.** Updates will go through a
-recovery image, not A/B. Changing the partition table means a reflash, and 2.0
-already asks for one, so the layout is to be settled before 2.0 ships even if
-updating comes later.
+**The layout is made for updating through recovery**, not A/B. Updating is
+not implemented yet; the table is in place first because changing it means a
+reflash, and 2.0 already asks for one.
 
-| Partition | Now | Proposed |
-|---|---|---|
-| env, idblock, uboot | 256K, 256K, 512K | unchanged |
-| misc | none | 512K: the mark that sends the next boot into recovery |
-| boot | 4 MB | 6 MB: display drivers will grow the kernel |
-| recovery | none | 8 MB: a kernel and a busybox system that flashes the package |
-| rootfs | 180 MB | 48 MB |
-| oem | 60 MB | 64 MB |
-| userdata | 10 MB | the rest, about 127 MB: holds the update package |
+| Partition | Why this size |
+|---|---|
+| misc | holds the mark that sends the next boot into recovery |
+| boot | 6 MB rather than 4: display drivers will grow the kernel |
+| recovery | a kernel and a busybox system that flashes the package |
+| rootfs | twice what is used; only buildroot packages land here |
+| oem | the app, and room for a display process, fonts and models |
+| userdata | the rest: holds the update package |
 
 How an update runs:
 
@@ -728,13 +733,11 @@ What is known and what is not:
 - The package lives in `/userdata` on every board, so an update needs neither
   a card nor a USB drive. `RkLunch-recovery.sh` unpacks beside the package by
   default, which doubles the space; its second argument moves that to RAM.
-- Each UBI partition loses 10-13 MB to bad-block reserve and the file system,
-  whatever its size. Measured on the board: 47 MB usable of `oem`'s 60 MB,
-  2.2 MB of `userdata`'s 10 MB. The proposed sizes should leave about 36 MB
-  in `rootfs` (18.9 MB used), 52 MB in `oem` (14.7 MB used) and 115 MB in
-  `userdata`; these three are estimates.
-- `userdata` is sized so that the largest possible package, with `boot`,
-  `rootfs` and `oem` all full at about 94 MB, still fits.
+- `userdata` is sized so that the largest possible package still fits: with
+  `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
+- The board config has `RK_MISC=wipe_all-misc.img`, which a recovery build
+  would flash as `misc.img`. By its name it wipes the data partitions on the
+  first boot; check what it does before enabling recovery.
 - A new system that is flashed completely and still does not boot is not
   covered: that needs a reflash over USB.
 - The Ultra is eMMC and has room to spare; its table needs the same `misc`

@@ -33,8 +33,8 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       not a reason to reset the board
 
 ### Updates
-- [ ] A partition table with `misc`, `recovery` and a `userdata` that holds an
-      update package, settled before 2.0 ships: changing it later means
+- [x] A partition table with `misc`, `recovery` and a `userdata` that holds an
+      update package, in place before 2.0 ships: changing it later means
       another reflash. See *Partitions* in [BUILD.md](BUILD.md#partitions)
 - [ ] Updating through recovery: an uploaded package is flashed after a
       reboot, and a flash interrupted by a power loss starts over
