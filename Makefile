@@ -75,7 +75,8 @@ go-agent:
 	$(CURRENT_DIR)/scripts/build-web.sh
 	@echo -e "$(C_GREEN) [MotionSense] build agent ($(shell go version 2>/dev/null | cut -d" " -f3)) $(C_NORMAL)"
 	cd $(MS_AGENT_DIR) && $(MS_GO_ENV) \
-		go build -trimpath -buildvcs=false -ldflags="-s -w" \
+		go build -trimpath -buildvcs=false \
+			-ldflags="-s -w -X github.com/motionsense/agent/internal/server.Version=$$($(CURRENT_DIR)/scripts/version.sh)" \
 			-o $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN) .
 
 clean:

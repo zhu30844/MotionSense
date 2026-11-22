@@ -38,6 +38,7 @@ const rows = computed<[string, string | number][]>(() => {
     ['SoC temperature', s.socTempCelsius === null ? '—' : `${s.socTempCelsius.toFixed(1)} °C`],
     ['Viewers', s.clients],
     ['Last day with footage', s.lastRecordingDate === null ? '—' : day(s.lastRecordingDate)],
+    ['Version', s.version],
     ['Board clock', new Date(s.time).toLocaleString()],
   ]
 })

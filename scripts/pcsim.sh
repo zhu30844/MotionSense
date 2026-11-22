@@ -12,7 +12,9 @@ cmake -S "$APP" -B "$OUT" -DMS_PLATFORM=pcsim \
     -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUT/bin" >/dev/null
 cmake --build "$OUT" -j"$(nproc)" >/dev/null
 "$APP/scripts/build-web.sh" >/dev/null
-(cd "$APP/agent" && go build -buildvcs=false -o "$OUT/bin/agent" .)
+(cd "$APP/agent" && go build -buildvcs=false \
+    -ldflags="-X github.com/motionsense/agent/internal/server.Version=$("$APP/scripts/version.sh")" \
+    -o "$OUT/bin/agent" .)
 install -D -m 644 -t "$OUT/share/MotionSense/fonts" "$APP/3rdparty/osd/DejaVuSansMono.ttf"
 
 mkdir -p "$OUT/data"

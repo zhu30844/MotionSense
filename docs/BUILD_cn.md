@@ -515,14 +515,16 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 |---|---|
 | `manifest` | `board=` 和 `version=` 两行 |
 | `SHA256SUMS` | 每个镜像一行 |
-| `boot.img`、`rootfs.img`、`oem.img` | 三个里的任意几个；`--only oem` 只打应用 |
+| `recovery.img`、`boot.img`、`rootfs.img`、`oem.img` | 默认四个都带，47 MB；`--only oem` 只打应用 |
 
-永远不带 `uboot` 和 `recovery`：写它们的时候断电，板子就再也进不了 recovery。所以 `update/recovery.sh` 在用户手里的板子上改不了，只能通过 USB 重刷。也永远不带 `userdata`：配置和升级包本身都在里面。
+永远不带 `uboot`：写它的时候断电，板子就完全起不来了。永远不带 `userdata`：配置和升级包本身都在里面。
+
+升级包也带 `recovery.img`，除非用 `--only` 把它排除。recovery 不能重写自己，所以由 `ms-update` 在主系统里处理它，在设置任何标记之前：先读出分区的内容，只有和镜像不同才写入并回读校验。所以大多数升级不会动它。写入期间断电没有代价：板子照常启动。这种情况下会留下一个文件 `/userdata/update/recovery-pending`，只要它还在，不带 `recovery.img` 的升级包就会被拒绝：标记加上损坏的 recovery 会让板子无处可启动。任何带着它的升级包（每个发布包都带）都会把分区修好并继续升级。
 
 一次升级的过程：
 
 1. 用 `PUT /api/update` 上传升级包。agent 把它存成 `/userdata/update/incoming.tar`，然后运行 `ms-update`。
-2. `update/ms-update` 检查板子有 `misc` 和 `recovery`、manifest 写的是这块板子（板级文件里的 `name`）、每个成员都是那三个镜像之一、校验和正确。然后把包移成 `update.tar`，把失败启动计数清零，在 `misc` 的 16 KB 偏移处写上 `boot-recovery`，板子重启。被它拒绝的包会被删掉，原因返回给调用方。
+2. `update/ms-update` 检查板子有 `misc` 和 `recovery`、manifest 写的是这块板子（板级文件里的 `name`）、每个成员都是那四个镜像之一、校验和正确。然后把包移成 `update.tar`，把失败启动计数清零，在 `misc` 的 16 KB 偏移处写上 `boot-recovery`，板子重启。被它拒绝的包会被删掉，原因返回给调用方。
 3. U-Boot 看到标记，启动 `recovery` 而不是 `boot`。
 4. `update/recovery.sh` 在擦除任何东西之前再检查一遍升级包，然后逐个分区擦、写，镜像从 tar 里直接流出来。它在 `/userdata/update/result` 里留一行（`ok: boot rootfs oem` 或 `failed: ...`），旁边留一份日志，最后才清掉标记并重启。
 5. `S99motionsense` 在开机时删掉 `/userdata/update` 里残留的升级包。
@@ -535,14 +537,14 @@ agent 从不删除文件。删掉被拒绝或只传了一半的升级包是 `ms-
 
 recovery 脚本通过 `RK_RECOVERY_LUNCH_SCRIPT` 进入镜像，这是加在 `build.sh` 里的一个钩子：板级配置指定自己目录下的一个文件，这里是指向 `update/recovery.sh` 的符号链接。`RK_MISC` 设为 `blank-misc.img`，即空标记；不设置时默认是 `recovery-misc.img`，它会让第一次启动就进入 recovery 并带上 `--wipe_all`。
 
-在 Pro Max 上用带全部三个镜像的 43 MB 升级包实测：recovery 里 21 秒，从开始上传到主系统回来约 100 秒。
-
 在板子上试过的：
 
 - 通过接口完成一次完整升级；事先放在 `rootfs` 和 `oem` 里的文件升级后都没有了。
 - 别的板子的包、带 `uboot.img` 的包、校验和不对的包、没有 manifest 的包都被拒绝，shell 和接口各试过。
 - 接受之后才损坏的包：recovery 报告损坏，旧系统原样启动。
 - 写 `rootfs` 时拔掉电源：恢复供电后从头重刷并完成。
+- 带有改动过的 `recovery.img` 的升级包：分区回读的内容是新镜像，新的 recovery 随后刷入了其余分区。没有改动时分区原样不动。
+- 擦掉 `recovery` 并留下 `recovery-pending`，相当于写它时断电：板子正常启动，拒绝了不带 `recovery.img` 的升级包，默认的升级包把它修好并完成了升级。
 
 没有覆盖的：
 
@@ -551,7 +553,7 @@ recovery 脚本通过 `RK_RECOVERY_LUNCH_SCRIPT` 进入镜像，这是加在 `bu
 - 写进去的内容不回读，只检查升级包。
 - 完整刷完却仍然起不来的新系统需要通过 USB 重刷。
 - 只支持 NAND。Ultra 是 eMMC：它的分区表需要 `misc` 和 `recovery`，脚本需要一个写块设备的分支，它还需要自己的板级文件。现在它和 Pro Max 共用一份，连名字也是。
-- 还没有页面，`/api/status` 里也没有能看出升级是否成功的版本号。结果文件和日志是留给 adb 查看的。
+- 还没有页面。`/api/status` 里的 `version` 能看出升级是否成功；结果文件和日志是留给 adb 查看的。
 
 ### 设备树
 
@@ -606,7 +608,9 @@ project/app/motionsense/scripts/mk-release.sh --version v1.1.0
 
 zip 用来通过 USB 烧录板子。tar 是给运行中的板子用的升级包，由 `scripts/mk-update.sh` 打出；见*升级*一节。
 
-板型默认取 `.BoardConfig.mk` 指向的目录，并与 `--board` 核对，所以不会把一块板的镜像装进另一块板的包里。文件名里的板型简称来自脚本内的 `slug_for()`，新板型在那里加一行。版本号默认取 HEAD 上的 tag，否则是 `dev-<短 sha>`。
+板型默认取 `.BoardConfig.mk` 指向的目录，并与 `--board` 核对，所以不会把一块板的镜像装进另一块板的包里。文件名里的板型简称来自脚本内的 `slug_for()`，新板型在那里加一行。
+
+版本号来自 `scripts/version.sh`：设置了 `$MS_VERSION` 就用它，否则取 HEAD 上的 tag，再否则是 `dev-<短 sha>`，有未提交的改动时加上 `-dirty`。agent 的每一种构建方式都问同一个脚本，并把结果编进程序，所以 `/api/status` 里的 `version` 就是镜像构建自哪个版本。发布流程在构建时设置 `MS_VERSION`，因为 tag 要到发布时才会打到这个仓库上。
 
 脚本还会核对 `project/app/out/bin` 里的两个二进制与 `output/out/oem/usr/bin` 里的逐字节一致、`oem.img` 不早于它们。这是针对一类具体的失败：build_app 中途失败（例如没有 go）时，`./build.sh firmware` 会把空的 `app_out` 打进 oem 并报成功，刷出来的板子上没有 MotionSense。
 
