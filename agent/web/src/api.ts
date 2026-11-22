@@ -8,7 +8,10 @@ export interface DeviceStatus {
   agentUptimeSeconds: number
   memTotalBytes: number
   memAvailableBytes: number
-  load1: number
+  /** Over the time since the previous request. */
+  cpuUsagePercent: number | null
+  /** null on a board without an NPU. */
+  npuUsagePercent: number | null
   socTempCelsius: number | null
   /** YYYY-MM-DD */
   lastRecordingDate: string | null

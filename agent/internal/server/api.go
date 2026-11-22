@@ -142,7 +142,8 @@ type statusResponse struct {
 	// Not sysinfo's freeram, which excludes reclaimable page cache and so
 	// reads as 84% used on a device whose real figure is 20%.
 	MemAvailableBytes uint64   `json:"memAvailableBytes"`
-	Load1             float64  `json:"load1"`
+	CPUUsagePercent   *float64 `json:"cpuUsagePercent"` // since the previous request
+	NPUUsagePercent   *float64 `json:"npuUsagePercent"`
 	SocTempCelsius    *float64 `json:"socTempCelsius"`
 	LastRecordingDate *string  `json:"lastRecordingDate"` // YYYY-MM-DD
 
@@ -245,6 +246,8 @@ func mjpegStream(broker *stream.Broker) http.HandlerFunc {
 }
 
 func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func(http.ResponseWriter, *http.Request) {
+	cpu := &cpuMeter{}
+	cpu.Usage() // the first reading, for the first request to compare with
 	return func(w http.ResponseWriter, r *http.Request) {
 		var status statusResponse
 		var sysInfo unix.Sysinfo_t
@@ -259,9 +262,12 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		// 32-bit, which is what the RV1106 target is, so convert explicitly.
 		status.UptimeSeconds = int64(sysInfo.Uptime)
 		status.AgentUptimeSeconds = int64(now.Sub(start).Seconds())
-		// Loads are fixed point with 16 fractional bits; dividing as an
-		// integer reported 0 for every load average below 1.00.
-		status.Load1 = float64(sysInfo.Loads[0]) / 65536.0
+		if v, ok := cpu.Usage(); ok {
+			status.CPUUsagePercent = &v
+		}
+		if v, ok := readNPUUsage(); ok {
+			status.NPUUsagePercent = &v
+		}
 
 		// Totalram and Freeram are counts of Unit bytes, not bytes. Unit is 1
 		// on Linux today, so this changes nothing here, but the field is
@@ -296,7 +302,9 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		status.AppUptime = now.Sub(start).String()
 		status.Totalram = status.MemTotalBytes
 		status.Freeram = status.MemAvailableBytes
-		status.WorkLoad = status.Load1
+		// Loads are fixed point with 16 fractional bits; dividing as an
+		// integer reported 0 for every load average below 1.00.
+		status.WorkLoad = float64(sysInfo.Loads[0]) / 65536.0
 
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(status)

@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { fetchStatus, type DeviceStatus } from '@/api'
-import { day, duration, megabytes } from '@/format'
+import { day, duration, megabytes, percent } from '@/format'
 
 const POLL_MS = 2000
 
@@ -33,7 +33,8 @@ const rows = computed<[string, string | number][]>(() => {
     ['System uptime', duration(s.uptimeSeconds)],
     ['Agent uptime', duration(s.agentUptimeSeconds)],
     ['Memory free', `${megabytes(s.memAvailableBytes)} of ${megabytes(s.memTotalBytes)}`],
-    ['Load', s.load1.toFixed(2)],
+    ['CPU', percent(s.cpuUsagePercent)],
+    ['NPU', percent(s.npuUsagePercent)],
     ['SoC temperature', s.socTempCelsius === null ? '—' : `${s.socTempCelsius.toFixed(1)} °C`],
     ['Viewers', s.clients],
     ['Last day with footage', s.lastRecordingDate === null ? '—' : day(s.lastRecordingDate)],
