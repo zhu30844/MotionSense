@@ -1,6 +1,6 @@
 # Development notes
 
-Last edited: 2026-09-05
+Last edited: 2026-11-22
 
 Working practices for this board, recorded because each one cost time to
 establish. Build and configuration details are in [BUILD.md](BUILD.md); this
@@ -47,6 +47,10 @@ and it is what precedes every adb drop above. During one session it also
 interrupted an `adb push` mid-write, leaving a corrupt binary on the device
 that segfaulted at start — the push had reported success.
 
+A killed program is also started again within seconds, and a killed daemon
+leaves the watchdog running: the board resets unless the new one is feeding
+it within about 45 seconds. See [BUILD.md](BUILD.md#supervision).
+
 ## Verify a push by checksum
 
 `adb push` reporting success is not sufficient.
@@ -56,17 +60,6 @@ adb push project/app/out/bin/motionsense-agent /oem/usr/bin/motionsense-agent
 adb shell 'sync; md5sum /oem/usr/bin/motionsense-agent'
 md5sum project/app/out/bin/motionsense-agent
 ```
-
-## Judge recording from a reboot, not a service restart
-
-Stopping and starting the service leaves the ISP and VI unable to resume
-capture: the daemon runs, the day and segment directories are created, the
-databases are written, and no `.ts` appears. It is indistinguishable from
-having broken the recording path.
-
-Confirmed with a binary byte-identical to one that had been recording minutes
-earlier, so the restart alone accounts for it. Reboot before concluding
-anything about recording.
 
 ## Containers as a toolbox
 

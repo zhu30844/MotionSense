@@ -28,8 +28,8 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       mounts its external storage
 
 ### Processes
-- [ ] A process that exits is started again
-- [ ] Watchdog, fed by the recording process only: a hung page or agent is
+- [x] A process that exits is started again
+- [x] Watchdog, fed by the recording process only: a hung page or agent is
       not a reason to reset the board
 
 ### Front end

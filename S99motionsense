@@ -3,43 +3,152 @@
 BIN_DIR="/oem/usr/bin"
 LIB_DIR="/oem/usr/lib"
 DAEMON="$BIN_DIR/MotionSense"
-PIDFILE="/var/run/motionsense.pid"
-
 # Go agent: HTTP UI/API on :80 (:3000 when not root). Start order does not
 # matter: it retries the daemon's socket.
 AGENT="$BIN_DIR/motionsense-agent"
+SELF="/etc/init.d/S99motionsense"
+# One supervisor per program; these hold the supervisors' pids.
+DAEMON_PIDFILE="/var/run/motionsense.pid"
 AGENT_PIDFILE="/var/run/motionsense-agent.pid"
 
 # Both programs wait for storage themselves and keep their logs on it.
 
+RESPAWN_DELAY_S=2
+FAST_S=60          # an exit sooner than this is a crash
+FAST_LIMIT=5       # crashes in a row before the board is rebooted
+STABLE_S=300       # the daemon up this long makes the boot a good one
+BOOT_LIMIT=5       # bad boots in a row before recording is left off
+
+# On flash, not the card: a missing card must not hide a reboot loop.
+BOOT_COUNT="/userdata/motionsense/boot_count"
+# In RAM, so each lasts one boot.
+COUNTED_FLAG="/tmp/motionsense-boot-counted"
+SAFE_FLAG="/tmp/motionsense-safe-mode"
+
+say() { logger -t S99motionsense "$*"; }
+
+uptime_s() { cut -d. -f1 /proc/uptime; }
+
+read_count() {
+    n=$(cat "$BOOT_COUNT" 2>/dev/null)
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    echo "$n"
+}
+
+write_count() {
+    mkdir -p "${BOOT_COUNT%/*}"
+    echo "$1" > "$BOOT_COUNT.tmp" && mv "$BOOT_COUNT.tmp" "$BOOT_COUNT" && sync
+}
+
+# Restart the program whenever it exits. $1 = daemon | agent
+supervise() {
+    name=$1
+    child=
+    fails=0
+    trap 'kill "$child" 2>/dev/null; wait "$child"; exit 0' TERM INT
+
+    while :; do
+        started=$(uptime_s)
+        stable=
+        if [ "$name" = daemon ]; then
+            # LD_LIBRARY_PATH is required despite the binary's RPATH. The RPATH
+            # ($ORIGIN/../lib) does resolve the daemon's own NEEDED entries, but
+            # librockit.so in turn needs librockchip_mpp.so.1 and librga.so, and
+            # resolving *its* dependencies does not consult the executable's
+            # RPATH, so those come up "not found" and the daemon dies at exec.
+            LD_LIBRARY_PATH=$LIB_DIR "$DAEMON" &
+        else
+            "$AGENT" &
+        fi
+        child=$!
+
+        while kill -0 "$child" 2>/dev/null; do
+            sleep 1
+            if [ "$name" = daemon ] && [ -z "$stable" ] &&
+               [ $(( $(uptime_s) - started )) -ge $STABLE_S ]; then
+                write_count 0
+                stable=1
+            fi
+        done
+        wait "$child"
+        rc=$?
+
+        if [ $(( $(uptime_s) - started )) -lt $FAST_S ]; then
+            fails=$((fails + 1))
+        else
+            fails=0
+        fi
+        say "$name exited with $rc ($fails quick in a row)"
+
+        # Restarting the process did not help; see whether a reboot does.
+        if [ "$name" = daemon ] && [ $fails -ge $FAST_LIMIT ]; then
+            say "daemon keeps crashing, rebooting"
+            reboot
+            exit 1
+        fi
+        sleep $RESPAWN_DELAY_S
+    done
+}
+
+start_supervisor() {   # $1 = daemon | agent, $2 = pidfile
+    start-stop-daemon -S -b -m -p "$2" -x /bin/sh -- "$SELF" supervise "$1"
+}
+
+stop_supervisor() {   # $1 = pidfile; returns once the program is gone too
+    pid=$(cat "$1" 2>/dev/null) || return 0
+    kill "$pid" 2>/dev/null
+    i=0
+    while kill -0 "$pid" 2>/dev/null && [ $i -lt 20 ]; do
+        sleep 1
+        i=$((i + 1))
+    done
+    rm -f "$1"
+}
+
+# Count this boot once. Returns 1 when too many in a row went bad.
+boot_ok() {
+    [ -e "$COUNTED_FLAG" ] && return 0
+    touch "$COUNTED_FLAG"
+    n=$(( $(read_count) + 1 ))
+    if [ $n -gt $BOOT_LIMIT ]; then
+        # Start over, so the next power cycle tries recording again.
+        write_count 0
+        return 1
+    fi
+    write_count $n
+}
+
 case "$1" in
     start)
-        # Hand the camera over from the stock rkipc app: this kills rkipc and
-        # blocks until it has fully released the ISP, so we don't race it.
-        [ -x /oem/usr/bin/RkLunch-stop.sh ] && sh /oem/usr/bin/RkLunch-stop.sh
-        if [ ! -d /dev/mpi ]; then
-            cd /oem/usr/ko && sh insmod_ko.sh >/dev/null 2>&1
+        rm -f "$SAFE_FLAG"
+        if boot_ok; then
+            # Hand the camera over from the stock rkipc app: this kills rkipc and
+            # blocks until it has fully released the ISP, so we don't race it.
+            [ -x /oem/usr/bin/RkLunch-stop.sh ] && sh /oem/usr/bin/RkLunch-stop.sh
+            if [ ! -d /dev/mpi ]; then
+                cd /oem/usr/ko && sh insmod_ko.sh >/dev/null 2>&1
+            fi
+            start_supervisor daemon "$DAEMON_PIDFILE"
+        else
+            touch "$SAFE_FLAG"
+            say "$BOOT_LIMIT boots in a row went bad, recording is off until the next boot"
         fi
-        # LD_LIBRARY_PATH is required despite the binary's RPATH. The RPATH
-        # ($ORIGIN/../lib) does resolve the daemon's own NEEDED entries, but
-        # librockit.so in turn needs librockchip_mpp.so.1 and librga.so, and
-        # resolving *its* dependencies does not consult the executable's
-        # RPATH, so those come up "not found" and the daemon dies at exec.
-        start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c "exec env LD_LIBRARY_PATH=$LIB_DIR $DAEMON"
-        if [ -x "$AGENT" ]; then
-            start-stop-daemon -S -b -m -p "$AGENT_PIDFILE" -x "$AGENT"
-        fi
+        [ -x "$AGENT" ] && start_supervisor agent "$AGENT_PIDFILE"
         ;;
     stop)
-        start-stop-daemon -K -q -p "$AGENT_PIDFILE" && rm -f "$AGENT_PIDFILE"
-        start-stop-daemon -K -p "$PIDFILE" && rm -f "$PIDFILE"
+        stop_supervisor "$AGENT_PIDFILE"
+        stop_supervisor "$DAEMON_PIDFILE"
         ;;
     restart)
         $0 stop; sleep 1; $0 start
         ;;
     status)
-        start-stop-daemon -K -t -q -p "$PIDFILE" && echo "MotionSense: running" || echo "MotionSense: stopped"
+        start-stop-daemon -K -t -q -p "$DAEMON_PIDFILE" && echo "MotionSense: running" || echo "MotionSense: stopped"
         start-stop-daemon -K -t -q -p "$AGENT_PIDFILE" && echo "agent: running" || echo "agent: stopped"
+        [ -e "$SAFE_FLAG" ] && echo "safe mode: recording was not started"
+        ;;
+    supervise)
+        supervise "$2"
         ;;
     *)
         echo "Usage: $0 {start|stop|restart|status}"

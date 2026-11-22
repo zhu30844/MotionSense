@@ -527,6 +527,35 @@ $ ls /mnt/sdcard/DCIM/$(date +%F)/00001/
 00000.ts  00001.ts  index.m3u8
 ```
 
+### Supervision
+
+Three layers, each for a failure the one before cannot see.
+
+**A program that exits is started again.** `S99motionsense start` runs one
+loop per program, the script itself with `supervise`, which restarts the
+program two seconds after it exits. `stop` ends the loop first and the loop
+stops its program, so nothing comes back during an upgrade. `status` reports
+the loops.
+
+**A program that hangs resets the board.** The daemon opens `/dev/watchdog`
+once the pipeline is up and feeds it only while the writer keeps storing
+frames, so a hung process, a stalled capture and a blocked card all end the
+same way: a reset after about 45 seconds. A clean stop disarms it; a board
+waiting for its card has not armed it. The agent never touches the watchdog:
+a hung page is not a reason to reset the board. The device node comes from
+`&wdt` in the board's device tree.
+
+**A board that keeps failing stops trying.** Five exits in a row, each within
+a minute of its start, and the loop reboots the board. Every boot adds one to
+`/userdata/motionsense/boot_count`, and five minutes of the daemon running
+sets it back to zero. A boot that finds it above five starts the agent
+without the daemon and sets it back to zero, so the board stays reachable and
+the next power cycle tries again. `status` says so, and
+`/tmp/motionsense-safe-mode` exists.
+
+The numbers are at the top of `S99motionsense` and in `config.h`
+(`CFG_WATCHDOG_TIMEOUT_S`).
+
 ### The SD card
 
 **The filesystem must not use `orphan_file`.** e2fsprogs 1.47 and later enable
@@ -580,13 +609,9 @@ The app is on its own partition, so iterating does not need a full reflash:
 `rkflash.sh` also accepts `boot`, `rootfs`, `userdata`, `uboot`, `loader`,
 `update`, `erase`.
 
-Pushing the binary over adb and restarting the service is faster still.
-
-**Judge recording from a full reboot, not from a service restart.** Stopping
-and starting S99motionsense leaves the ISP and VI unable to resume capture:
-the daemon runs, the day and segment directories are created, the databases
-are written, and no `.ts` is produced. A reboot recovers it. Confirmed with a
-binary byte-identical to one that had been recording immediately before.
+Pushing the binary over adb and restarting the service is faster still. Stop
+the service first: a program that is only killed is started again while the
+push is still writing.
 
 ---
 
