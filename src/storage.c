@@ -366,6 +366,7 @@ static void ingest_frame(writer_state_t *ws, app_ctx_t *ctx, const fq_frame *f)
         event_db_update_total_frames(ws);
     }
     check_and_cleanup(ws);
+    atomic_fetch_add(&ctx->frames_stored, 1);
 }
 
 /* ------------------------------------------------------------------ */

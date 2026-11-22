@@ -13,6 +13,8 @@
 /* Relative to the binary: /oem/usr/bin and /oem/usr/share on the board. */
 #define CFG_OSD_FONT_REL     "../share/MotionSense/fonts/DejaVuSansMono.ttf"
 #define CFG_SOCKET_PATH      "/tmp/motionsense-stream.sock"
+#define CFG_WATCHDOG_DEV     "/dev/watchdog"
+#define CFG_WATCHDOG_TIMEOUT_S 30   /* the RV1106 rounds this up to about 45 */
 
 /* ------------------------------------------------------------------ */
 /* Defaults: written to config.json on first run, used for missing keys */

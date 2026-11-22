@@ -15,6 +15,7 @@
 #include "motionsense/media.h"
 #include "motionsense/storage.h"
 #include "motionsense/utils.h"
+#include "motionsense/watchdog.h"
 
 #include "log.h"
 
@@ -94,14 +95,26 @@ int main(void)
     if (media_init  (&g_ctx) != 0) { MS_LOG_ERROR("media_init failed\n");   goto err_storage; }
 
     MS_LOG_INFO("MotionSense running (pid %d)\n", getpid());
-    while (atomic_load(&g_ctx.is_running)) sleep(1);
+    /* Fed only while frames reach storage, so a stalled pipeline resets the
+     * board the same as a hung process. */
+    ms_watchdog_start();
+    unsigned stored = 0;
+    while (atomic_load(&g_ctx.is_running))
+    {
+        unsigned n = atomic_load(&g_ctx.frames_stored);
+        if (n != stored) { stored = n; ms_watchdog_feed(); }
+        sleep(1);
+    }
     MS_LOG_INFO("shutting down\n");
 
+    /* Still armed during teardown: a shutdown that hangs resets too. */
+    ms_watchdog_feed();
     media_stop(&g_ctx);
     storage_stop(&g_ctx);
 
     media_deinit(&g_ctx);
     storage_deinit(&g_ctx);
+    ms_watchdog_stop();
     app_ctx_deinit(&g_ctx);
     closelog();
     return 0;

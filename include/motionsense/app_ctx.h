@@ -25,6 +25,7 @@ typedef struct {
     atomic_bool is_running;
     atomic_int  motion_state;   /* MOTION_* */
     atomic_int  current_fps;    /* CFG_FPS_LOW | CFG_FPS_HIGH */
+    atomic_uint frames_stored;  /* writer's progress; main feeds the watchdog on it */
 
     /* H264 data plane */
     frame_queue *vq;
