@@ -70,13 +70,15 @@ go-agent:
 		echo -e "$(C_RED) [MotionSense] go not found; it builds the agent daemon.$(C_NORMAL)"; \
 		echo "   Use the SDK devcontainer, or install Go and re-run."; \
 		exit 1; }
+	@echo -e "$(C_GREEN) [MotionSense] build web pages $(C_NORMAL)"
+	$(CURRENT_DIR)/scripts/build-web.sh
 	@echo -e "$(C_GREEN) [MotionSense] build agent ($(shell go version 2>/dev/null | cut -d" " -f3)) $(C_NORMAL)"
 	cd $(MS_AGENT_DIR) && $(MS_GO_ENV) \
 		go build -trimpath -buildvcs=false -ldflags="-s -w" \
 			-o $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN) .
 
 clean:
-	rm -rf $(MS_BUILD_DIR) $(MS_STAGE_DIR)
+	rm -rf $(MS_BUILD_DIR) $(MS_STAGE_DIR) $(MS_AGENT_DIR)/static/v2
 	rm -f $(RK_APP_OUTPUT)/bin/$(MS_AGENT_BIN)
 
 distclean: clean

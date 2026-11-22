@@ -305,11 +305,27 @@ the socket reader retries.
 
 ### Pushing to a running board over adb
 
-`deploy.sh` builds and pushes the binary without reflashing. It pushes no
-libraries, so the device must already carry them. Images built before the
-switch to buildroot-provided libraries have no `libsqlite3.so.0` or
-`libcjson.so.1`, and the daemon will not start. Flash `update.img` once on
-such a device, after which `deploy.sh` works.
+`ms`, at the top of this repository, holds the day-to-day commands. Run it
+with no arguments for the list:
+
+```
+./ms status     what is running, safe mode, boot count, storage, clock
+./ms logs       follow the system log, the agent's and the vendor libraries'
+./ms deploy     build both programs and the web pages, push them, restart
+./ms time       set the board's clock and RTC from this machine
+./ms sim        the simulator and the web dev server together
+```
+
+It works from the host or from inside the devcontainer: started on the host,
+it moves itself into the container. adb is only ever used from the container,
+because the board belongs to whichever adb server started first, and a server
+on the host would leave the container's unable to see it. If the board does
+not show up, run `adb kill-server` on the host.
+
+`ms deploy` pushes no libraries, so the device must already carry them.
+Images built before the switch to buildroot-provided libraries have no
+`libsqlite3.so.0` or `libcjson.so.1`, and the daemon will not start. Flash
+`update.img` once on such a device, after which `ms deploy` works.
 
 ---
 
