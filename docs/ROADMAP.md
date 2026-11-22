@@ -41,7 +41,8 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       *Updates* in [BUILD.md](BUILD.md#updates)
 - [ ] A login before the update endpoint is offered to users: today anyone
       who can reach the agent can flash the board
-- [ ] An update page, and the result of the last update in `/api/status`
+- [ ] An update page, and the version in `/api/status`: the version tells
+      whether an update took
 - [ ] Updates on the Ultra: eMMC, and its own board file
 
 ### Front end
