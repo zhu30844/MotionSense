@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { fetchStatus, type DeviceStatus } from '@/api'
+import { day, duration, megabytes } from '@/format'
 
 const POLL_MS = 2000
 
@@ -24,20 +25,19 @@ onMounted(() => {
 })
 onUnmounted(() => window.clearInterval(timer))
 
-const mb = (bytes: number) => `${Math.round(bytes / 1048576)} MB`
-
 const rows = computed<[string, string | number][]>(() => {
   const s = status.value
   if (!s) return []
   return [
     ['Recording', s.frameFlow ? 'frames flowing' : 'no frames'],
-    ['System uptime', s.systemUptime],
-    ['Agent uptime', s.appUptime.replace(/\.\d+s$/, 's')],
-    ['Memory free', `${mb(s.freeram)} of ${mb(s.totalram)}`],
-    ['Load', s.workLoad.toFixed(2)],
-    ['SoC temperature', s.cpuTemp],
+    ['System uptime', duration(s.uptimeSeconds)],
+    ['Agent uptime', duration(s.agentUptimeSeconds)],
+    ['Memory free', `${megabytes(s.memAvailableBytes)} of ${megabytes(s.memTotalBytes)}`],
+    ['Load', s.load1.toFixed(2)],
+    ['SoC temperature', s.socTempCelsius === null ? '—' : `${s.socTempCelsius.toFixed(1)} °C`],
     ['Viewers', s.clients],
-    ['Last day with footage', s.lastRecord],
+    ['Last day with footage', s.lastRecordingDate === null ? '—' : day(s.lastRecordingDate)],
+    ['Board clock', new Date(s.time).toLocaleString()],
   ]
 })
 </script>

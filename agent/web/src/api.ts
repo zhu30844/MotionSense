@@ -1,14 +1,17 @@
-/** What GET /api/status returns. */
+/** What GET /api/status returns. Raw values; null where the board cannot tell. */
 export interface DeviceStatus {
   clients: number
-  systemUptime: string
-  appUptime: string
-  totalram: number
-  freeram: number
-  workLoad: number
-  cpuTemp: string
   frameFlow: boolean
-  lastRecord: string
+  /** The board's clock, RFC 3339. */
+  time: string
+  uptimeSeconds: number
+  agentUptimeSeconds: number
+  memTotalBytes: number
+  memAvailableBytes: number
+  load1: number
+  socTempCelsius: number | null
+  /** YYYY-MM-DD */
+  lastRecordingDate: string | null
 }
 
 export async function fetchStatus(): Promise<DeviceStatus> {
