@@ -798,7 +798,8 @@ Not covered:
 - NAND only. The Ultra is eMMC: its table needs `misc` and `recovery`, the
   scripts need a branch that writes block devices, and it needs its own
   board file. Today it shares the Pro Max's, name included.
-- No page yet, and the result file is not in `/api/status`.
+- No page yet, and `/api/status` has no version to tell whether an update
+  took. The result file and the log are for looking at over adb.
 
 ### Device tree
 
