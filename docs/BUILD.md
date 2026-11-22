@@ -677,21 +677,21 @@ shift if board configs are added or removed.
 | Partition | Size | Usable | Used |
 |---|---|---|---|
 | boot | 6 MB | 6 MB | 3.55 MB |
+| recovery | 8 MB | 8 MB | 4.02 MB |
 | rootfs | 48 MB | 36.3 MB | 18.9 MB |
 | oem | 64 MB | 50.5 MB | 13.3 MB |
 | userdata | 127.5 MB | 107.4 MB | 0.03 MB |
 
 A UBI partition loses 12 to 20 MB to the bad-block reserve and the file
-system, more as it grows. `misc` and `recovery` have no image yet, so
-`mk-update_pack.sh` prints a `Not found image file` error for each and leaves
-them out of `update.img`.
+system, more as it grows.
 
 Nothing validates images against partition sizes. An oversized image builds
 and flashes without complaint and fails at boot.
 
-**The layout is made for updating through recovery**, not A/B. Updating is
-not implemented yet; the table is in place first because changing it means a
-reflash, and 2.0 already asks for one.
+**The layout is made for updating through recovery**, not A/B. The recovery
+image is built and the board enters it; the update itself is not implemented
+yet. The table is in place first because changing it means a reflash, and
+2.0 already asks for one.
 
 | Partition | Why this size |
 |---|---|
@@ -721,23 +721,30 @@ U-Boot changes for choosing between them.
 What is known and what is not:
 
 - The SDK has this path wired: `RK_ENABLE_RECOVERY` builds `recovery.img` and
-  generates `RK_OTA_update.sh`, `./build.sh ota` packs `update_ota.tar`, and
-  U-Boot's FIT path boots `recovery` when `misc` says so. None of it has been
-  built or run on this board. The board config needs
-  `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`, and the size of `recovery.img` is
-  not measured: 8 MB is a guess from the 3.55 MB of `boot.img`.
+  generates `RK_OTA_update.sh`, and the build packs `update_ota.tar`. The
+  board config sets it, with `rv1106-recovery.config` as
+  `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`.
+- Entering recovery works with U-Boot as it is. With `boot-recovery` written
+  16 KB into `misc`, the board came back after one reboot with `misc` erased,
+  which only the recovery system does: finding no package, it clears the mark
+  and reboots. Its own output was not seen, since recovery has no adb and no
+  serial console was attached.
+- `RK_MISC` is `blank-misc.img`, an empty mark. Left unset it defaults to
+  `recovery-misc.img`, which sends the first boot into recovery with
+  `--wipe_all`. The vendor configs name `wipe_all-misc.img`, a file the SDK
+  does not have, so there no `misc.img` is made at all.
+- The vendor `RkLunch-recovery.sh` looks for the package only on a FAT SD
+  card. Recovery already mounts `/userdata`; reading the package from there
+  needs a script of our own.
 - The package is `boot`, `rootfs` and `oem`, set with `RK_OTA_RESOURCE`; the
   default list has `uboot` and no `oem`. `uboot` stays out: losing power while
   it is written leaves a board that cannot reach recovery. `userdata` stays
   out too, since it holds the configuration and the package itself.
 - The package lives in `/userdata` on every board, so an update needs neither
-  a card nor a USB drive. `RkLunch-recovery.sh` unpacks beside the package by
-  default, which doubles the space; its second argument moves that to RAM.
+  a card nor a USB drive. The vendor script unpacks beside the package, which
+  doubles the space; ours should unpack to RAM.
 - `userdata` is sized so that the largest possible package still fits: with
   `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
-- The board config has `RK_MISC=wipe_all-misc.img`, which a recovery build
-  would flash as `misc.img`. By its name it wipes the data partitions on the
-  first boot; check what it does before enabling recovery.
 - A new system that is flashed completely and still does not boot is not
   covered: that needs a reflash over USB.
 - The Ultra is eMMC and has room to spare; its table needs the same `misc`
