@@ -414,10 +414,12 @@ the image, so `install()` of the Rockchip `.so` files is skipped whenever
 ```
 /oem/usr/bin/MotionSense                     the C daemon
 /oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
+/oem/usr/bin/ms-update                       starts an update (see Updates)
 /oem/usr/share/MotionSense/fonts/            OSD font
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (installed by the app build)
 /etc/motionsense/board.json                  board file (from the board overlay)
+/userdata/update/                            update package, its result and log
 /mnt/sdcard/MotionSense/config.json          configuration
 /mnt/sdcard/MotionSense/motionsense.log      stderr of the vendor libraries
 /mnt/sdcard/MotionSense/agent.log            agent log
@@ -440,6 +442,7 @@ them on a PC.
 
 ```json
 {
+  "name": "luckfox-pico-pro-max",
   "storage": {
     "root": "/mnt/sdcard",
     "removable": true
@@ -449,6 +452,7 @@ them on a PC.
 
 | Key | Meaning | When missing |
 |---|---|---|
+| `name` | Which board this is. An update package must name the same one. | no package is accepted |
 | `storage.root` | Where recordings, configuration and logs go. `DCIM/` and `MotionSense/` are created under it. | `/mnt/sdcard` |
 | `storage.removable` | The root is a mount point that may be absent. Nothing is written until it is mounted. | `true` |
 
@@ -669,15 +673,15 @@ shift if board configs are added or removed.
 ### Partitions
 
 ```
-256K(env) 256K(idblock) 512K(uboot) 512K(misc) 6M(boot) 8M(recovery) 48M(rootfs) 64M(oem) 130560K(userdata)
+256K(env) 256K(idblock) 512K(uboot) 512K(misc) 8M(recovery) 6M(boot) 48M(rootfs) 64M(oem) 130560K(userdata)
 ```
 
 255MB of the 256MB SPI NAND. Measured on the board:
 
 | Partition | Size | Usable | Used |
 |---|---|---|---|
-| boot | 6 MB | 6 MB | 3.55 MB |
 | recovery | 8 MB | 8 MB | 4.02 MB |
+| boot | 6 MB | 6 MB | 3.55 MB |
 | rootfs | 48 MB | 36.3 MB | 18.9 MB |
 | oem | 64 MB | 50.5 MB | 13.3 MB |
 | userdata | 127.5 MB | 107.4 MB | 0.03 MB |
@@ -688,67 +692,113 @@ system, more as it grows.
 Nothing validates images against partition sizes. An oversized image builds
 and flashes without complaint and fails at boot.
 
-**The layout is made for updating through recovery**, not A/B. The recovery
-image is built and the board enters it; the update itself is not implemented
-yet. The table is in place first because changing it means a reflash, and
-2.0 already asks for one.
+**The layout is made for updating through recovery**, not A/B; see *Updates*
+below. Changing the table means a reflash, and 2.0 already asks for one.
 
-| Partition | Why this size |
+| Partition | Why |
 |---|---|
 | misc | holds the mark that sends the next boot into recovery |
-| boot | 6 MB rather than 4: display drivers will grow the kernel |
 | recovery | a kernel and a busybox system that flashes the package |
+| boot | 6 MB rather than 4: display drivers will grow the kernel |
 | rootfs | twice what is used; only buildroot packages land here |
 | oem | the app, and room for a display process, fonts and models |
 | userdata | the rest: holds the update package |
 
+The order matters. `misc`, `recovery` and `userdata` can never move: U-Boot
+would not find the first two, and the package is in the third. `boot`,
+`rootfs` and `oem` sit between them, so a later update could write a new
+table and resize those three against each other. Nothing does that yet.
+
+`userdata` is sized so that the largest possible package still fits: with
+`boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
+
+### Updates
+
+A running board is updated with a package, flashed by the recovery system.
+There is no going back to the old version: a new version may have changed the
+database, and the old one would then have to read it. The old system is only
+needed to finish an update that lost power, and recovery does that with one
+copy of each partition.
+
+The package is a plain tar, made by `scripts/mk-update.sh` from a finished
+build (`scripts/mk-release.sh` makes one beside the bundle):
+
+| Member | Content |
+|---|---|
+| `manifest` | `board=` and `version=` lines |
+| `SHA256SUMS` | one line per image |
+| `boot.img`, `rootfs.img`, `oem.img` | any of the three; `--only oem` packs the app alone |
+
+Never `uboot` or `recovery`: losing power while either is written leaves a
+board that cannot get back into recovery. So `update/recovery.sh` cannot be
+changed on a board in the field, only by flashing over USB. Never `userdata`:
+it holds the configuration and the package itself.
+
 How an update runs:
 
-1. The user uploads a package; the system stores it in `/userdata`, writes
-   `boot-recovery` to `misc` and reboots.
-2. U-Boot sees the mark and boots `recovery` instead of `boot`.
-3. Recovery writes each partition from the package, clears the mark only
-   after the last one, and reboots into the new system.
-4. If power is lost on the way, the mark is still there: the next boot enters
-   recovery again and flashes from the start.
+1. The package is uploaded with `PUT /api/update`. The agent stores it as
+   `/userdata/update/incoming.tar` and runs `ms-update`.
+2. `update/ms-update` checks that the board has `misc` and `recovery`, that
+   the manifest names this board (`name` in the board file), that every
+   member is one of the three images and that the checksums match. It then
+   moves the package to `update.tar`, clears the count of bad boots, writes
+   `boot-recovery` 16 KB into `misc` and the board reboots. A package it
+   turns down is removed and the reason goes back to the caller.
+3. U-Boot sees the mark and boots `recovery` instead of `boot`.
+4. `update/recovery.sh` checks the package again before erasing anything,
+   then erases and writes each partition, streaming the image out of the tar.
+   It leaves one line in `/userdata/update/result` (`ok: boot rootfs oem` or
+   `failed: ...`) and a log beside it, clears the mark last and reboots.
+5. `S99motionsense` removes any package still in `/userdata/update` at boot.
 
-Why not A/B: there is no wish to go back to the old version. A new version
-may have changed the database, and the old one would then have to read it. The
-only thing the old system was wanted for is finishing an interrupted update,
-and recovery does that with one copy of each partition, no slots and no
-U-Boot changes for choosing between them.
+If power is lost on the way the mark is still there, so the next boot enters
+recovery again and flashes from the start. A write that fails is tried three
+times; a power loss does not count as a try.
 
-What is known and what is not:
+The LED shows where recovery is: fast blinking while it writes, slow
+blinking for five seconds after a success, steady for five seconds after a
+failure.
 
-- The SDK has this path wired: `RK_ENABLE_RECOVERY` builds `recovery.img` and
-  generates `RK_OTA_update.sh`, and the build packs `update_ota.tar`. The
-  board config sets it, with `rv1106-recovery.config` as
-  `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`.
-- Entering recovery works with U-Boot as it is. With `boot-recovery` written
-  16 KB into `misc`, the board came back after one reboot with `misc` erased,
-  which only the recovery system does: finding no package, it clears the mark
-  and reboots. Its own output was not seen, since recovery has no adb and no
-  serial console was attached.
-- `RK_MISC` is `blank-misc.img`, an empty mark. Left unset it defaults to
-  `recovery-misc.img`, which sends the first boot into recovery with
-  `--wipe_all`. The vendor configs name `wipe_all-misc.img`, a file the SDK
-  does not have, so there no `misc.img` is made at all.
-- The vendor `RkLunch-recovery.sh` looks for the package only on a FAT SD
-  card. Recovery already mounts `/userdata`; reading the package from there
-  needs a script of our own.
-- The package is `boot`, `rootfs` and `oem`, set with `RK_OTA_RESOURCE`; the
-  default list has `uboot` and no `oem`. `uboot` stays out: losing power while
-  it is written leaves a board that cannot reach recovery. `userdata` stays
-  out too, since it holds the configuration and the package itself.
-- The package lives in `/userdata` on every board, so an update needs neither
-  a card nor a USB drive. The vendor script unpacks beside the package, which
-  doubles the space; ours should unpack to RAM.
-- `userdata` is sized so that the largest possible package still fits: with
-  `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
-- A new system that is flashed completely and still does not boot is not
-  covered: that needs a reflash over USB.
-- The Ultra is eMMC and has room to spare; its table needs the same `misc`
-  and `recovery`.
+The agent never deletes a file. Removing a refused or half-uploaded package
+is `ms-update`'s job (`--discard` for the second), and cleaning up at boot is
+the start script's.
+
+The recovery script gets into the image through `RK_RECOVERY_LUNCH_SCRIPT`,
+a hook added to `build.sh`: the board config names a file in its own
+directory, here a symlink to `update/recovery.sh`. `RK_MISC` is
+`blank-misc.img`, an empty mark; left unset it defaults to
+`recovery-misc.img`, which sends the first boot into recovery with
+`--wipe_all`.
+
+Measured on the Pro Max with a 43 MB package of all three images: 21 seconds
+in recovery, about 100 seconds from the start of the upload until the main
+system is back.
+
+Tried on the board:
+
+- A complete update through the API; files put in `rootfs` and `oem`
+  beforehand were gone afterwards.
+- Packages for another board, with `uboot.img`, with a wrong checksum and
+  without a manifest are refused, from a shell and through the API.
+- A package damaged after it was accepted: recovery reports it and the old
+  system boots untouched.
+- Power pulled while `rootfs` was being written: after power returned the
+  flash started over and finished.
+
+Not covered:
+
+- **Anyone who can reach the agent can flash the board.** There is no
+  authentication and packages are not signed. Until the agent has a login,
+  this is for trusted networks only.
+- A write that fails and the three tries were never seen: there is no way to
+  make a good flash fail.
+- What is written is not read back; only the package is checked.
+- A new system that is flashed completely and still does not boot needs a
+  reflash over USB.
+- NAND only. The Ultra is eMMC: its table needs `misc` and `recovery`, the
+  scripts need a branch that writes block devices, and it needs its own
+  board file. Today it shares the Pro Max's, name included.
+- No page yet, and the result file is not in `/api/status`.
 
 ### Device tree
 
@@ -766,7 +816,7 @@ It also corrects the vendor dts, where the sdmmc node spells the property
 
 ## Upstream deltas that cannot be moved
 
-Product changes live in the directories above. Eight vendor files carry edits
+Product changes live in the directories above. Nine vendor files carry edits
 that cannot move there, because they are where build switches are read rather
 than declared. These need merging by hand when syncing upstream:
 
@@ -778,6 +828,7 @@ than declared. These need merging by hand when syncing upstream:
 | `media/cfg/cfg.mk` | `CONFIG_RK_ISP_BUILD_DEMO=n`, a value not a switch |
 | `sysdrv/Makefile` | passes `BR2_CCACHE_DIR`; copies `*_defconfig` so a board can ship its own |
 | `sysdrv/tools/board/buildroot/luckfox_pico_defconfig` | `BR2_DL_DIR` |
+| `project/build.sh` | reads `LF_JOBS`, and `RK_RECOVERY_LUNCH_SCRIPT` for a board's own recovery script |
 
 Turning a package **off** takes more than listing it. A `# BR2_X is not set`
 line appended after the base defconfig is read as a comment and changes
@@ -814,7 +865,10 @@ cp sysdrv/tools/board/buildroot/*_defconfig \
 ```bash
 project/app/motionsense/scripts/mk-release.sh --version v1.1.0
 # -> output/release/MotionSense-v1.1.0-luckfox-pico-pro-max-img.zip
+# -> output/release/MotionSense-v1.1.0-luckfox-pico-pro-max-update.tar
 ```
+
+The zip is for flashing a board over USB. The tar is the update package for a running board, made by `scripts/mk-update.sh`; see *Updates*.
 
 The board defaults to whatever `.BoardConfig.mk` points at and is checked against `--board`, so one board's images cannot end up in another's bundle. The board slug in the file name comes from `slug_for()` in the script; a new board is one more line there. The version defaults to the tag on HEAD, else `dev-<short sha>`.
 

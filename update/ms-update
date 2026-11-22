@@ -1,0 +1,72 @@
+#!/bin/sh
+# Checks an update package, stores it and marks misc; recovery.sh flashes it.
+# usage: ms-update [--no-reboot] <package.tar>
+#        ms-update --discard      drop a failed upload
+
+DIR=/userdata/update
+PKG=$DIR/update.tar
+# Where the agent puts an upload. The agent never deletes, so that is done here.
+INCOMING=$DIR/incoming.tar
+BOARD_FILE=/etc/motionsense/board.json
+
+die() {
+    echo "ms-update: $*" >&2
+    [ "$src" = "$INCOMING" ] && rm -f "$INCOMING"
+    exit 1
+}
+
+[ "$1" = "--discard" ] && { rm -f "$INCOMING"; exit 0; }
+reboot=y
+[ "$1" = "--no-reboot" ] && { reboot=; shift; }
+src=$1
+[ -f "$src" ] || die "usage: ms-update [--no-reboot] <package.tar>"
+
+mtd_of() { sed -n "s/^\(mtd[0-9]*\):.*\"$1\"\$/\1/p" /proc/mtd; }
+misc=$(mtd_of misc)
+[ -n "$misc" ] && [ -n "$(mtd_of recovery)" ] || die "this board has no misc and recovery partitions"
+
+# Another board's images would not boot.
+have=$(sed -n 's/.*"name"[^"]*"\([^"]*\)".*/\1/p' "$BOARD_FILE" 2>/dev/null)
+want=$(tar -xOf "$src" manifest 2>/dev/null | sed -n 's/^board=//p')
+[ -n "$want" ] || die "not an update package: no manifest"
+[ "$have" = "$want" ] || die "package is for $want, this board is ${have:-unnamed}"
+
+tar -xOf "$src" SHA256SUMS > /tmp/ms-update.sums 2>/dev/null
+found=
+while read -r sum file; do
+    part=${file%.img}
+    case "$part" in
+        boot|rootfs|oem) ;;
+        *) die "package carries $file, which is never updated" ;;
+    esac
+    [ -n "$(mtd_of "$part")" ] || die "this board has no $part partition"
+    [ "$(tar -xOf "$src" "$file" 2>/dev/null | sha256sum | cut -d' ' -f1)" = "$sum" ] \
+        || die "$file is damaged"
+    found=y
+done < /tmp/ms-update.sums
+[ -n "$found" ] || die "package is empty"
+
+mkdir -p "$DIR"
+rm -f "$DIR/tries" "$DIR/result" "$DIR/recovery.log"
+# S99motionsense's count of bad boots: an update is not one of them.
+[ -d /userdata/motionsense ] && echo 0 > /userdata/motionsense/boot_count
+mv "$src" "$PKG" 2>/dev/null || cp "$src" "$PKG" || {
+    rm -f "$PKG"
+    die "cannot store the package in $DIR"
+}
+sync
+
+# U-Boot reads the mark 16 KB into misc; an erased misc boots normally.
+bcb=/tmp/ms-update.bcb
+{
+    dd if=/dev/zero bs=1024 count=16
+    printf 'boot-recovery'
+    dd if=/dev/zero bs=1 count=2035
+} > "$bcb" 2>/dev/null
+flash_eraseall "/dev/$misc" > /dev/null 2>&1 || die "cannot erase misc"
+nandwrite -p "/dev/$misc" "$bcb" > /dev/null || die "cannot write misc"
+sync
+
+echo "ms-update: package stored, the next boot flashes it"
+[ -n "$reboot" ] && reboot
+exit 0
