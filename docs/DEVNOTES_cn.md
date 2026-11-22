@@ -2,7 +2,7 @@
 
 [English](DEVNOTES.md) | 简体中文
 
-最后编辑：2026-10-24
+最后编辑：2026-11-22
 
 这块板子上的工作习惯。之所以记录下来，是因为每一条都花了时间才确立。构建和配置细节见 [BUILD_cn.md](BUILD_cn.md)；本文讲的是日常工作的循环。
 
@@ -34,6 +34,8 @@
 
 `SIGKILL` 不给守护进程释放 ISP 或关闭文件的机会，而且上面每一次 adb 掉线之前都是它。有一次它还打断了一个正在写入的 `adb push`，在设备上留下一个损坏的二进制文件，启动即段错误——而那次 push 报告的是成功。
 
+被杀掉的程序还会在几秒内被重新拉起，而守护进程被杀后看门狗仍在计时：新的进程如果没有在约 45 秒内接上喂狗，板子就会复位。见 [BUILD_cn.md](BUILD_cn.md#进程监管)。
+
 ## 用校验和验证推送
 
 `adb push` 报告成功并不足够。
@@ -43,12 +45,6 @@ adb push project/app/out/bin/motionsense-agent /oem/usr/bin/motionsense-agent
 adb shell 'sync; md5sum /oem/usr/bin/motionsense-agent'
 md5sum project/app/out/bin/motionsense-agent
 ```
-
-## 以重启而非服务重启来判断录像
-
-停止再启动服务后，ISP 和 VI 无法恢复采集：守护进程在运行，日期目录和分段目录都已创建，数据库也在写入，但不出现任何 `.ts`。这与录像路径被改坏的表现无法区分。
-
-已用一个与几分钟前还在正常录像的二进制逐字节相同的文件确认过，因此仅重启服务这一项就足以造成该现象。在对录像下任何结论之前，先重启板子。
 
 ## 把容器当工具箱
 
