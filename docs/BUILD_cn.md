@@ -287,10 +287,12 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 ```
 /oem/usr/bin/MotionSense                     the C daemon
 /oem/usr/bin/motionsense-agent               the Go HTTP UI/API, port 5000
+/oem/usr/bin/ms-update                       starts an update (see Updates)
 /oem/usr/share/MotionSense/fonts/            OSD font
 /oem/usr/lib/                                Rockchip media libraries
 /etc/init.d/S99motionsense                   start script (installed by the app build)
 /etc/motionsense/board.json                  board file (from the board overlay)
+/userdata/update/                            update package, its result and log
 /mnt/sdcard/MotionSense/config.json          configuration
 /mnt/sdcard/MotionSense/motionsense.log      stderr of the vendor libraries
 /mnt/sdcard/MotionSense/agent.log            agent log
@@ -307,6 +309,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 ```json
 {
+  "name": "luckfox-pico-pro-max",
   "storage": {
     "root": "/mnt/sdcard",
     "removable": true
@@ -316,6 +319,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 | 键 | 含义 | 缺失时 |
 |---|---|---|
+| `name` | 这是哪块板子。升级包里写的必须是同一个名字。 | 不接受任何升级包 |
 | `storage.root` | 录像、配置和日志的存放位置。`DCIM/` 和 `MotionSense/` 建在它下面。 | `/mnt/sdcard` |
 | `storage.removable` | 根目录是一个可能不存在的挂载点。挂载之前不写任何东西。 | `true` |
 
@@ -469,15 +473,15 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 ### 分区
 
 ```
-256K(env) 256K(idblock) 512K(uboot) 512K(misc) 6M(boot) 8M(recovery) 48M(rootfs) 64M(oem) 130560K(userdata)
+256K(env) 256K(idblock) 512K(uboot) 512K(misc) 8M(recovery) 6M(boot) 48M(rootfs) 64M(oem) 130560K(userdata)
 ```
 
 占用 256MB SPI NAND 中的 255MB。板子上实测：
 
 | 分区 | 大小 | 可用 | 已用 |
 |---|---|---|---|
-| boot | 6 MB | 6 MB | 3.55 MB |
 | recovery | 8 MB | 8 MB | 4.02 MB |
+| boot | 6 MB | 6 MB | 3.55 MB |
 | rootfs | 48 MB | 36.3 MB | 18.9 MB |
 | oem | 64 MB | 50.5 MB | 13.3 MB |
 | userdata | 127.5 MB | 107.4 MB | 0.03 MB |
@@ -486,37 +490,68 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 
 没有任何环节会根据分区大小校验镜像。超大的镜像可以正常构建和烧录而不报任何错误，然后在启动时失败。
 
-**这个布局是为通过 recovery 升级准备的**，不做 A/B。recovery 镜像已经能构建，板子也能进入它；升级本身还没有实现。先把分区表定下来，是因为改它意味着重刷，而 2.0 本来就要求重刷一次。
+**这个布局是为通过 recovery 升级准备的**，不做 A/B；见下面的*升级*一节。改分区表意味着重刷，而 2.0 本来就要求重刷一次。
 
-| 分区 | 为什么是这个大小 |
+| 分区 | 原因 |
 |---|---|
 | misc | 存放让下次启动进入 recovery 的标记 |
-| boot | 6 MB 而不是 4 MB：屏幕驱动会让内核变大 |
 | recovery | 一个内核加一个 busybox 小系统，负责刷写升级包 |
+| boot | 6 MB 而不是 4 MB：屏幕驱动会让内核变大 |
 | rootfs | 现在用量的两倍；只有 buildroot 的包会装到这里 |
 | oem | 应用，以及给屏幕进程、字体和模型留的空间 |
 | userdata | 剩下的全部：存放升级包 |
 
+顺序是有讲究的。`misc`、`recovery` 和 `userdata` 永远不能挪：前两个挪了 U-Boot 就找不到，升级包在第三个里面。`boot`、`rootfs` 和 `oem` 夹在它们中间，所以以后的升级可以写入新的分区表，让这三个互相调整大小。现在还没有做这件事。
+
+`userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
+
+### 升级
+
+运行中的板子用升级包升级，由 recovery 小系统刷写。不能回到旧版本：新版本可能已经改了数据库，退回去就得让旧版本读得懂它。旧系统唯一的用处是把断电中断的升级刷完，而 recovery 用每个分区一份就能做到。
+
+升级包是一个普通的 tar，由 `scripts/mk-update.sh` 从完成的构建里打出（`scripts/mk-release.sh` 会在发布包旁边打一个）：
+
+| 成员 | 内容 |
+|---|---|
+| `manifest` | `board=` 和 `version=` 两行 |
+| `SHA256SUMS` | 每个镜像一行 |
+| `boot.img`、`rootfs.img`、`oem.img` | 三个里的任意几个；`--only oem` 只打应用 |
+
+永远不带 `uboot` 和 `recovery`：写它们的时候断电，板子就再也进不了 recovery。所以 `update/recovery.sh` 在用户手里的板子上改不了，只能通过 USB 重刷。也永远不带 `userdata`：配置和升级包本身都在里面。
+
 一次升级的过程：
 
-1. 用户上传升级包；系统把它存到 `/userdata`，在 `misc` 里写上 `boot-recovery`，然后重启。
-2. U-Boot 看到标记，启动 `recovery` 而不是 `boot`。
-3. recovery 把包里的每个分区写进去，最后一个写完才清掉标记，再重启进新系统。
-4. 中途掉电时标记还在：下次开机仍进 recovery，从头再刷一遍。
+1. 用 `PUT /api/update` 上传升级包。agent 把它存成 `/userdata/update/incoming.tar`，然后运行 `ms-update`。
+2. `update/ms-update` 检查板子有 `misc` 和 `recovery`、manifest 写的是这块板子（板级文件里的 `name`）、每个成员都是那三个镜像之一、校验和正确。然后把包移成 `update.tar`，把失败启动计数清零，在 `misc` 的 16 KB 偏移处写上 `boot-recovery`，板子重启。被它拒绝的包会被删掉，原因返回给调用方。
+3. U-Boot 看到标记，启动 `recovery` 而不是 `boot`。
+4. `update/recovery.sh` 在擦除任何东西之前再检查一遍升级包，然后逐个分区擦、写，镜像从 tar 里直接流出来。它在 `/userdata/update/result` 里留一行（`ok: boot rootfs oem` 或 `failed: ...`），旁边留一份日志，最后才清掉标记并重启。
+5. `S99motionsense` 在开机时删掉 `/userdata/update` 里残留的升级包。
 
-为什么不做 A/B：不需要回到旧版本。新版本可能已经改了数据库，退回去就得让旧版本读得懂它。旧系统唯一的用处是把中断的升级刷完，而 recovery 用每个分区一份就能做到，没有槽位，也不用改 U-Boot 去选槽位。
+中途断电时标记还在，所以下次开机仍进 recovery，从头再刷一遍。写入失败会重试三次；断电不算一次。
 
-已知和未知的情况：
+LED 显示 recovery 进行到哪里：写入时快闪，成功后慢闪五秒，失败后长亮五秒。
 
-- SDK 里这条路是接好的：`RK_ENABLE_RECOVERY` 构建 `recovery.img` 并生成 `RK_OTA_update.sh`，构建时会打出 `update_ota.tar`。板级配置里已经打开，`RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT` 用的是 `rv1106-recovery.config`。
-- 进入 recovery 不需要改 U-Boot。在 `misc` 的 16 KB 偏移处写上 `boot-recovery` 后，板子重启一次回到正常系统，`misc` 已被擦除；只有 recovery 小系统会这么做：它找不到升级包时清掉标记并重启。它自己的输出没有看到，因为 recovery 里没有 adb，当时也没有接串口。
-- `RK_MISC` 设为 `blank-misc.img`，即空标记。不设置时默认是 `recovery-misc.img`，它会让第一次启动就进入 recovery 并带上 `--wipe_all`。vendor 的配置里写的是 `wipe_all-misc.img`，SDK 里没有这个文件，所以那些配置根本不会生成 `misc.img`。
-- vendor 的 `RkLunch-recovery.sh` 只在 FAT 格式的 SD 卡上找升级包。recovery 本来就会挂载 `/userdata`；要从那里读包，需要我们自己的脚本。
-- 升级包里是 `boot`、`rootfs` 和 `oem`，用 `RK_OTA_RESOURCE` 指定；默认的列表里有 `uboot`、没有 `oem`。`uboot` 不进包：写它的时候掉电，板子就进不了 recovery。`userdata` 也不进包，因为配置和升级包本身都在里面。
-- 所有板子都把升级包放在 `/userdata`，所以升级既不需要卡也不需要 U 盘。vendor 的脚本解包到升级包旁边，空间要翻倍；我们的脚本应该解到内存里。
-- `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
-- 完整刷完却仍然起不来的新系统不在这套方案的范围内：那需要通过 USB 重刷。
-- Ultra 是 eMMC，空间充裕；它的分区表同样需要 `misc` 和 `recovery`。
+agent 从不删除文件。删掉被拒绝或只传了一半的升级包是 `ms-update` 的事（后者用 `--discard`），开机清理是启动脚本的事。
+
+recovery 脚本通过 `RK_RECOVERY_LUNCH_SCRIPT` 进入镜像，这是加在 `build.sh` 里的一个钩子：板级配置指定自己目录下的一个文件，这里是指向 `update/recovery.sh` 的符号链接。`RK_MISC` 设为 `blank-misc.img`，即空标记；不设置时默认是 `recovery-misc.img`，它会让第一次启动就进入 recovery 并带上 `--wipe_all`。
+
+在 Pro Max 上用带全部三个镜像的 43 MB 升级包实测：recovery 里 21 秒，从开始上传到主系统回来约 100 秒。
+
+在板子上试过的：
+
+- 通过接口完成一次完整升级；事先放在 `rootfs` 和 `oem` 里的文件升级后都没有了。
+- 别的板子的包、带 `uboot.img` 的包、校验和不对的包、没有 manifest 的包都被拒绝，shell 和接口各试过。
+- 接受之后才损坏的包：recovery 报告损坏，旧系统原样启动。
+- 写 `rootfs` 时拔掉电源：恢复供电后从头重刷并完成。
+
+没有覆盖的：
+
+- **任何能访问 agent 的人都能给板子刷固件。** 没有认证，升级包也没有签名。在 agent 有登录之前，这只适用于可信的网络。
+- 写入失败和三次重试从来没有发生过：没有办法让好的 flash 写失败。
+- 写进去的内容不回读，只检查升级包。
+- 完整刷完却仍然起不来的新系统需要通过 USB 重刷。
+- 只支持 NAND。Ultra 是 eMMC：它的分区表需要 `misc` 和 `recovery`，脚本需要一个写块设备的分支，它还需要自己的板级文件。现在它和 Pro Max 共用一份，连名字也是。
+- 还没有页面，结果文件也没有进 `/api/status`。
 
 ### 设备树
 
@@ -528,7 +563,7 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 
 ## 无法迁出的上游改动
 
-产品改动位于上述目录中。有八个 vendor 文件带有无法迁到那里的修改，因为它们是读取构建开关的地方，而不是声明开关的地方。与上游同步时需要手动合并：
+产品改动位于上述目录中。有九个 vendor 文件带有无法迁到那里的修改，因为它们是读取构建开关的地方，而不是声明开关的地方。与上游同步时需要手动合并：
 
 | 文件 | 原因 |
 |---|---|
@@ -538,6 +573,7 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 | `media/cfg/cfg.mk` | `CONFIG_RK_ISP_BUILD_DEMO=n`，是一个值而不是开关 |
 | `sysdrv/Makefile` | 传入 `BR2_CCACHE_DIR`；复制 `*_defconfig`，使开发板可以携带自己的 defconfig |
 | `sysdrv/tools/board/buildroot/luckfox_pico_defconfig` | `BR2_DL_DIR` |
+| `project/build.sh` | 读取 `LF_JOBS`，以及让板子指定自己 recovery 脚本的 `RK_RECOVERY_LUNCH_SCRIPT` |
 
 **关闭**一个 package 不只是把它列出来。追加在基础 defconfig 之后的 `# BR2_X is not set` 行会被当作注释，不起任何作用，因此 `gen-buildroot-defconfig.sh` 改为从基础文件中删除启用该 package 的那一行。
 
@@ -565,7 +601,10 @@ cp sysdrv/tools/board/buildroot/*_defconfig \
 ```bash
 project/app/motionsense/scripts/mk-release.sh --version v1.1.0
 # -> output/release/MotionSense-v1.1.0-luckfox-pico-pro-max-img.zip
+# -> output/release/MotionSense-v1.1.0-luckfox-pico-pro-max-update.tar
 ```
+
+zip 用来通过 USB 烧录板子。tar 是给运行中的板子用的升级包，由 `scripts/mk-update.sh` 打出；见*升级*一节。
 
 板型默认取 `.BoardConfig.mk` 指向的目录，并与 `--board` 核对，所以不会把一块板的镜像装进另一块板的包里。文件名里的板型简称来自脚本内的 `slug_for()`，新板型在那里加一行。版本号默认取 HEAD 上的 tag，否则是 `dev-<短 sha>`。
 

@@ -135,6 +135,11 @@ fill "$HERE/release/SOURCES.md.in" "$TOP/SOURCES.md"
     zip -9 -X -q "$OUT/$NAME.zip" -@)
 (cd "$OUT" && sha256sum "$NAME.zip" > "$NAME.zip.sha256")
 
+# The package for updating a running board, beside the bundle for flashing one.
+UPDATE=MotionSense-$VERSION-$SLUG-update.tar
+"$HERE/mk-update.sh" --sdk "$SDK" --slug "$SLUG" --version "$VERSION" --out "$OUT/$UPDATE"
+(cd "$OUT" && sha256sum "$UPDATE" > "$UPDATE.sha256")
+
 echo "release bundle: $OUT/$NAME.zip"
 echo "  version $VERSION, board $BOARD ($SLUG)"
 echo "  MotionSense $APP_REV$APP_DIRTY"

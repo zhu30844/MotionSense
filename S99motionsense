@@ -109,6 +109,8 @@ stop_supervisor() {   # $1 = pidfile; returns once the program is gone too
 boot_ok() {
     [ -e "$COUNTED_FLAG" ] && return 0
     touch "$COUNTED_FLAG"
+    # A package still here at boot was never marked, or is already flashed.
+    rm -f /userdata/update/update.tar /userdata/update/incoming.tar
     n=$(( $(read_count) + 1 ))
     if [ $n -gt $BOOT_LIMIT ]; then
         # Start over, so the next power cycle tries recording again.

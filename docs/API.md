@@ -24,6 +24,7 @@ They do not overlap, so a page route can never collide with an endpoint, and
 | `/api/stream` | The live picture, MJPEG |
 | `GET /api/recordings/calendar` | The days that have footage |
 | `GET /api/recordings/{date}` | One day's segments and motion marks |
+| `PUT /api/update` | Takes an update package as the body; 202, then the board reboots and flashes it |
 | `GET /media/{date}/{segment}/{file}` | A playlist or a `.ts` |
 
 ## Pages
@@ -42,6 +43,12 @@ shows goes in the URL so that it can be bookmarked: `/#/playback/2026-11-22`.
 - No version in the path. The pages and the agent are one binary and cannot
   be out of step. This is to be looked at again when something outside that
   binary calls the agent, such as the screen process on the Ultra.
+- `PUT /api/update` replaces the system. The body is the tar itself, not a
+  form. A package that is turned down gets 422 with the reason as text; 409
+  means an update is already under way, 501 that this is the simulator. It
+  has no authentication: see *Updates* in [BUILD.md](BUILD.md#updates).
+- The agent never deletes a file. What has to be removed is removed by a
+  script on the board.
 
 ## Fields
 

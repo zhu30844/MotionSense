@@ -36,8 +36,13 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [x] A partition table with `misc`, `recovery` and a `userdata` that holds an
       update package, in place before 2.0 ships: changing it later means
       another reflash. See *Partitions* in [BUILD.md](BUILD.md#partitions)
-- [ ] Updating through recovery: an uploaded package is flashed after a
-      reboot, and a flash interrupted by a power loss starts over
+- [x] Updating through recovery: an uploaded package is flashed after a
+      reboot, and a flash interrupted by a power loss starts over. See
+      *Updates* in [BUILD.md](BUILD.md#updates)
+- [ ] A login before the update endpoint is offered to users: today anyone
+      who can reach the agent can flash the board
+- [ ] An update page, and the result of the last update in `/api/status`
+- [ ] Updates on the Ultra: eMMC, and its own board file
 
 ### Front end
 - [ ] A redesigned front end on Vue and Vite
