@@ -477,15 +477,16 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 | 分区 | 大小 | 可用 | 已用 |
 |---|---|---|---|
 | boot | 6 MB | 6 MB | 3.55 MB |
+| recovery | 8 MB | 8 MB | 4.02 MB |
 | rootfs | 48 MB | 36.3 MB | 18.9 MB |
 | oem | 64 MB | 50.5 MB | 13.3 MB |
 | userdata | 127.5 MB | 107.4 MB | 0.03 MB |
 
-一个 UBI 分区有 12 到 20 MB 被坏块预留和文件系统自身占掉，分区越大占得越多。`misc` 和 `recovery` 还没有镜像，所以 `mk-update_pack.sh` 会为它们各打印一条 `Not found image file` 错误，并且不把它们放进 `update.img`。
+一个 UBI 分区有 12 到 20 MB 被坏块预留和文件系统自身占掉，分区越大占得越多。
 
 没有任何环节会根据分区大小校验镜像。超大的镜像可以正常构建和烧录而不报任何错误，然后在启动时失败。
 
-**这个布局是为通过 recovery 升级准备的**，不做 A/B。升级功能还没有实现；先把分区表定下来，是因为改它意味着重刷，而 2.0 本来就要求重刷一次。
+**这个布局是为通过 recovery 升级准备的**，不做 A/B。recovery 镜像已经能构建，板子也能进入它；升级本身还没有实现。先把分区表定下来，是因为改它意味着重刷，而 2.0 本来就要求重刷一次。
 
 | 分区 | 为什么是这个大小 |
 |---|---|
@@ -507,11 +508,13 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 
 已知和未知的情况：
 
-- SDK 里这条路是接好的：`RK_ENABLE_RECOVERY` 构建 `recovery.img` 并生成 `RK_OTA_update.sh`，`./build.sh ota` 打出 `update_ota.tar`，U-Boot 的 FIT 路径在 `misc` 有标记时启动 `recovery`。这些都没有在这块板子上构建或运行过。板级配置里要定义 `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT`；`recovery.img` 的大小没有量过，8 MB 是按 `boot.img` 的 3.55 MB 估的。
+- SDK 里这条路是接好的：`RK_ENABLE_RECOVERY` 构建 `recovery.img` 并生成 `RK_OTA_update.sh`，构建时会打出 `update_ota.tar`。板级配置里已经打开，`RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT` 用的是 `rv1106-recovery.config`。
+- 进入 recovery 不需要改 U-Boot。在 `misc` 的 16 KB 偏移处写上 `boot-recovery` 后，板子重启一次回到正常系统，`misc` 已被擦除；只有 recovery 小系统会这么做：它找不到升级包时清掉标记并重启。它自己的输出没有看到，因为 recovery 里没有 adb，当时也没有接串口。
+- `RK_MISC` 设为 `blank-misc.img`，即空标记。不设置时默认是 `recovery-misc.img`，它会让第一次启动就进入 recovery 并带上 `--wipe_all`。vendor 的配置里写的是 `wipe_all-misc.img`，SDK 里没有这个文件，所以那些配置根本不会生成 `misc.img`。
+- vendor 的 `RkLunch-recovery.sh` 只在 FAT 格式的 SD 卡上找升级包。recovery 本来就会挂载 `/userdata`；要从那里读包，需要我们自己的脚本。
 - 升级包里是 `boot`、`rootfs` 和 `oem`，用 `RK_OTA_RESOURCE` 指定；默认的列表里有 `uboot`、没有 `oem`。`uboot` 不进包：写它的时候掉电，板子就进不了 recovery。`userdata` 也不进包，因为配置和升级包本身都在里面。
-- 所有板子都把升级包放在 `/userdata`，所以升级既不需要卡也不需要 U 盘。`RkLunch-recovery.sh` 默认解包到升级包旁边，空间要翻倍；它的第二个参数可以把解包目录改到内存里。
+- 所有板子都把升级包放在 `/userdata`，所以升级既不需要卡也不需要 U 盘。vendor 的脚本解包到升级包旁边，空间要翻倍；我们的脚本应该解到内存里。
 - `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
-- 板级配置里有 `RK_MISC=wipe_all-misc.img`，打开 recovery 的构建会把它当作 `misc.img` 烧进去。从名字看，它会在首次启动时清空数据分区；启用 recovery 之前要先确认它的行为。
 - 完整刷完却仍然起不来的新系统不在这套方案的范围内：那需要通过 USB 重刷。
 - Ultra 是 eMMC，空间充裕；它的分区表同样需要 `misc` 和 `recovery`。
 
