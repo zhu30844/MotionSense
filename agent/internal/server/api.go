@@ -99,15 +99,11 @@ func dayHasVideo(dir string) bool {
 // estimate of what a new allocation could get. Recording keeps a large page
 // cache that sysinfo counts as used but the kernel reclaims on demand.
 func memAvailable() (uint64, bool) {
-	f, err := os.Open("/proc/meminfo")
+	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0, false
 	}
-	defer f.Close()
-
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := sc.Text()
+	for _, line := range strings.Split(string(data), "\n") {
 		if !strings.HasPrefix(line, "MemAvailable:") {
 			continue
 		}
@@ -205,6 +201,9 @@ func playlistDuration(dcimRoot, date, segment string) float64 {
 		if d, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
 			total += d
 		}
+	}
+	if sc.Err() != nil {
+		return 0
 	}
 	return total
 }
