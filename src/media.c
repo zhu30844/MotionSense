@@ -461,14 +461,26 @@ static int stream_pipeline_init(void)
     }
 
     {
-        ve.stVencAttr.enType = RK_VIDEO_ID_MJPEG;
+        /* EXPERIMENT: live as H264, 2 Mbit/s, one keyframe a second */
+        ve.stVencAttr.enType = RK_VIDEO_ID_AVC;
+        ve.stVencAttr.u32Profile = 100;
         ve.stVencAttr.enPixelFormat = RK_FMT_YUV420SP;
+        ve.stVencAttr.u32MaxPicWidth = g_cfg.mjpeg.width;
+        ve.stVencAttr.u32MaxPicHeight = g_cfg.mjpeg.height;
         ve.stVencAttr.u32PicWidth = g_cfg.mjpeg.width;
         ve.stVencAttr.u32PicHeight = g_cfg.mjpeg.height;
         ve.stVencAttr.u32VirWidth = g_cfg.mjpeg.width;
         ve.stVencAttr.u32VirHeight = g_cfg.mjpeg.height;
         ve.stVencAttr.u32StreamBufCnt = 3;
         ve.stVencAttr.u32BufSize = g_cfg.mjpeg.width * g_cfg.mjpeg.height;
+        ve.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
+        ve.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.mjpeg.fps;
+        ve.stRcAttr.stH264Cbr.u32BitRate = 2000;
+        ve.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)g_cfg.h264.fps;
+        ve.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
+        ve.stRcAttr.stH264Cbr.fr32DstFrameRateNum = (uint32_t)g_cfg.mjpeg.fps;
+        ve.stRcAttr.stH264Cbr.fr32DstFrameRateDen = 1;
+        ve.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
     }
 
     VENC_CHN_PARAM_S param = {0};
@@ -480,14 +492,6 @@ static int stream_pipeline_init(void)
         param.stFrameRate.s32DstFrmRateDen = 1;
     }
     RK_MPI_VENC_SetChnParam(VENC_CHN_MJPEG, &param);
-
-    VENC_RC_PARAM_S rcp;
-    RK_MPI_VENC_GetRcParam(VENC_CHN_MJPEG, &rcp);
-    {
-        rcp.stParamMjpeg.u32MaxQfactor = g_cfg.mjpeg.qfactor_max;
-        rcp.stParamMjpeg.u32MinQfactor = g_cfg.mjpeg.qfactor_min;
-    }
-    RK_MPI_VENC_SetRcParam(VENC_CHN_MJPEG, &rcp);
 
     if (RK_MPI_VENC_CreateChn(VENC_CHN_MJPEG, &ve) != RK_SUCCESS)
     {
