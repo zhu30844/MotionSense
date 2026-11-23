@@ -461,7 +461,7 @@ static int stream_pipeline_init(void)
     }
 
     {
-        /* EXPERIMENT: live as H264, 2 Mbit/s, one keyframe a second */
+        /* TODO: bitrate and keyframe interval from the config */
         ve.stVencAttr.enType = RK_VIDEO_ID_AVC;
         ve.stVencAttr.u32Profile = 100;
         ve.stVencAttr.enPixelFormat = RK_FMT_YUV420SP;
