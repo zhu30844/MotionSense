@@ -34,9 +34,7 @@ extern "C" {
 #define OSD_RGN_RECORD              0   // OSD region for the record channel
 #define OSD_RGN_LIVE                1   // OSD region for the live channel
 
-/* CFG_ISP_IQ_DIR and CFG_SOCKET_PATH live in config.h; they used to be
- * duplicated here, and the socket had a second name (MJPEG_SOCK_PATH) that
- * disagreed with the one the Go agent dials. */
+/* CFG_ISP_IQ_DIR and CFG_SOCKET_PATH are in config.h. */
 
 /* Bring VI/VENC/IVS up and start the three producer threads. */
 int  media_init(app_ctx_t *ctx);
