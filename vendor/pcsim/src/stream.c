@@ -70,15 +70,13 @@ static void wait_until(int64_t *next, int64_t period_us)
     *next += period_us;
 }
 
-/* A frame starts at an AUD (H.264) or an SOI (JPEG). */
-static bool frame_start(const uint8_t *p, size_t left, bool avc)
+/* A frame starts at an AUD. */
+static bool frame_start(const uint8_t *p, size_t left)
 {
-    if (avc)
-        return left >= 5 && !p[0] && !p[1] && !p[2] && p[3] == 1 && (p[4] & 0x1f) == 9;
-    return left >= 3 && p[0] == 0xff && p[1] == 0xd8 && p[2] == 0xff;
+    return left >= 5 && !p[0] && !p[1] && !p[2] && p[3] == 1 && (p[4] & 0x1f) == 9;
 }
 
-static int clip_load(struct clip *c, const char *name, bool avc)
+static int clip_load(struct clip *c, const char *name)
 {
     const char *dir = getenv("PCSIM_SAMPLE_DIR");
     char path[512];
@@ -101,7 +99,7 @@ static int clip_load(struct clip *c, const char *name, bool avc)
     fclose(f);
 
     for (size_t i = 0; i < size; i++) {
-        if (!frame_start(c->data + i, size - i, avc))
+        if (!frame_start(c->data + i, size - i))
             continue;
         if (c->n)
             c->frm[c->n - 1].len = i - c->frm[c->n - 1].off;
@@ -117,7 +115,7 @@ static int clip_load(struct clip *c, const char *name, bool avc)
     }
     c->frm[c->n - 1].len = size - c->frm[c->n - 1].off;
 
-    for (int k = 0; avc && k < c->n; k++) {
+    for (int k = 0; k < c->n; k++) {
         const uint8_t *p = c->data + c->frm[k].off;
         for (size_t i = 0; i + 3 < c->frm[k].len; i++)
             if (!p[i] && !p[i + 1] && p[i + 2] == 1 && (p[i + 3] & 0x1f) == 5)
@@ -193,15 +191,11 @@ RK_S32 RK_MPI_VENC_CreateChn(VENC_CHN VeChn, const VENC_CHN_ATTR_S *pstAttr)
     if (!v)
         return RK_FAILURE;
 
-    int ret;
-    switch (pstAttr->stVencAttr.enType) {
-    case RK_VIDEO_ID_AVC:   ret = clip_load(&v->clip, "sample.h264", true);   break;
-    case RK_VIDEO_ID_MJPEG: ret = clip_load(&v->clip, "sample.mjpeg", false); break;
-    default:
+    if (pstAttr->stVencAttr.enType != RK_VIDEO_ID_AVC) {
         fprintf(stderr, "pcsim: no sample for codec %d\n", pstAttr->stVencAttr.enType);
         return RK_FAILURE;
     }
-    if (ret)
+    if (clip_load(&v->clip, "sample.h264"))
         return RK_FAILURE;
     v->attr = *pstAttr;
     return RK_SUCCESS;
