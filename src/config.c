@@ -33,17 +33,17 @@ typedef struct {
 #define F(sec, key, type) { #sec, #key, type, &g_cfg.sec.key }
 
 static const field_t s_fields[] = {
-    F(h264, width,        T_U32),
-    F(h264, height,       T_U32),
-    F(h264, fps,          T_INT),
-    F(h264, bitrate_kbps, T_U32),
-    F(h264, gop,          T_INT),
+    F(record, width,        T_U32),
+    F(record, height,       T_U32),
+    F(record, fps,          T_INT),
+    F(record, bitrate_kbps, T_U32),
+    F(record, gop,          T_INT),
 
-    F(mjpeg, width,       T_U32),
-    F(mjpeg, height,      T_U32),
-    F(mjpeg, fps,         T_INT),
-    F(mjpeg, qfactor_max, T_U32),
-    F(mjpeg, qfactor_min, T_U32),
+    F(live, width,        T_U32),
+    F(live, height,       T_U32),
+    F(live, fps,          T_INT),
+    F(live, bitrate_kbps, T_U32),
+    F(live, gop,          T_INT),
 
     F(ivs, width,              T_U32),
     F(ivs, height,             T_U32),
@@ -86,17 +86,17 @@ static void config_defaults(ms_config_t *c)
 {
     memset(c, 0, sizeof(*c));
 
-    c->h264.width        = CFG_VI_W;
-    c->h264.height       = CFG_VI_H;
-    c->h264.fps          = CFG_VI_BASE_FPS;
-    c->h264.bitrate_kbps = CFG_H264_BITRATE;
-    c->h264.gop          = CFG_FPS_HIGH * 2;
+    c->record.width        = CFG_VI_W;
+    c->record.height       = CFG_VI_H;
+    c->record.fps          = CFG_VI_BASE_FPS;
+    c->record.bitrate_kbps = CFG_RECORD_BITRATE;
+    c->record.gop          = CFG_FPS_HIGH * 2;
 
-    c->mjpeg.width       = CFG_VI_W;
-    c->mjpeg.height      = CFG_VI_H;
-    c->mjpeg.fps         = 15;
-    c->mjpeg.qfactor_max = 80;
-    c->mjpeg.qfactor_min = 65;
+    c->live.width        = CFG_VI_W;
+    c->live.height       = CFG_VI_H;
+    c->live.fps          = CFG_LIVE_FPS;
+    c->live.bitrate_kbps = CFG_LIVE_BITRATE;
+    c->live.gop          = CFG_LIVE_FPS;
 
     c->ivs.width         = CFG_IVS_W;
     c->ivs.height        = CFG_IVS_H;
@@ -251,8 +251,8 @@ void ms_config_load(const char *path)
     }
     cJSON_Delete(root);
 
-    MS_LOG_INFO("loaded from %s (h264 %ux%u@%d %ukbps, ivs area=%.2f)\n",
+    MS_LOG_INFO("loaded from %s (record %ux%u@%d %ukbps, ivs area=%.2f)\n",
              path,
-             g_cfg.h264.width, g_cfg.h264.height, g_cfg.h264.fps,
-             g_cfg.h264.bitrate_kbps, g_cfg.ivs.area_ratio);
+             g_cfg.record.width, g_cfg.record.height, g_cfg.record.fps,
+             g_cfg.record.bitrate_kbps, g_cfg.ivs.area_ratio);
 }

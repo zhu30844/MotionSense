@@ -2,7 +2,7 @@
 
 [English](API.md) | 简体中文
 
-最后编辑：2026-11-22
+最后编辑：2026-11-25
 
 agent 提供哪些路径，以及新增路径或字段时遵循的规则。路径注册在 `agent/internal/server/server.go` 里。
 
@@ -21,7 +21,7 @@ agent 提供哪些路径，以及新增路径或字段时遵循的规则。路�
 | 路径 | 返回 |
 |---|---|
 | `GET /api/status` | 设备和录制状态 |
-| `/api/stream` | 实时画面，MJPEG |
+| `POST /api/stream` | 请求体是 WebRTC 的 offer，返回 answer；实时画面随后以 H264 经 WebRTC 送达 |
 | `GET /api/recordings/calendar` | 有录像的日期 |
 | `GET /api/recordings/{date}` | 某一天的分段和运动标记 |
 | `PUT /api/update` | 请求体是升级包；返回 202，随后板子重启并刷入 |
@@ -37,6 +37,7 @@ Vue 页面是一个应用，使用 hash 路由 `/#/…`：agent 只提供文件�
 - `GET` 读取，`PUT` 替换。将来的设置就是 `GET /api/config` 和 `PUT /api/config`。
 - 路径里不带版本号。页面和 agent 编在同一个程序里，不可能不同步。等这个程序之外的东西要调用 agent 时再重新考虑，比如 Ultra 上的屏幕进程。
 - `PUT /api/update` 替换整个系统。请求体就是 tar 本身，不是表单。被拒绝的升级包得到 422，原因以文本返回；409 表示已有升级在进行，501 表示这是模拟器。它没有认证：见 [BUILD_cn.md](BUILD_cn.md#升级) 的*升级*一节。
+- `POST /api/stream` 接入一个观看者。请求体是浏览器的 SDP offer 文本，响应是 201 和 agent 的 answer，里面已经带齐板子所有可达的地址：一来一回就结束，没有后续消息。400 表示 agent 读不懂这个 offer，503 表示已有四个观看者。画面本身不经过这个服务器：它从 agent 经 UDP 直接到浏览器。
 - agent 从不删除文件。需要删除的东西由板子上的脚本删除。
 
 ## 字段

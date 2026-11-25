@@ -22,7 +22,9 @@
 #define CFG_VI_W             1920
 #define CFG_VI_H             1080
 #define CFG_VI_BASE_FPS      30
-#define CFG_H264_BITRATE     4000
+#define CFG_RECORD_BITRATE   4000
+#define CFG_LIVE_FPS         30
+#define CFG_LIVE_BITRATE     2000
 #define CFG_IVS_W            640
 #define CFG_IVS_H            360
 #define CFG_FPS_LOW          1
@@ -57,15 +59,15 @@ typedef struct {
     int      fps;
     uint32_t bitrate_kbps;
     int      gop;
-} ms_h264_cfg_t;
+} ms_record_cfg_t;
 
 typedef struct {
     uint32_t width;
     uint32_t height;
     int      fps;
-    uint32_t qfactor_max;
-    uint32_t qfactor_min;
-} ms_mjpeg_cfg_t;
+    uint32_t bitrate_kbps;
+    int      gop;
+} ms_live_cfg_t;
 
 typedef struct {
     uint32_t width;
@@ -96,8 +98,8 @@ typedef struct {
 } ms_storage_cfg_t;
 
 typedef struct {
-    ms_h264_cfg_t    h264;
-    ms_mjpeg_cfg_t   mjpeg;
+    ms_record_cfg_t  record;
+    ms_live_cfg_t    live;
     ms_ivs_cfg_t     ivs;
     ms_osd_cfg_t     osd;
     ms_storage_cfg_t storage;

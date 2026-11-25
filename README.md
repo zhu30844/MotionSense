@@ -2,12 +2,12 @@
 
 English | [简体中文](README_cn.md)
 
-Last edited: 2026-11-22
+Last edited: 2026-11-25
 
 Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
 RV1106; support for the Pico Ultra is in progress). Records H.264 to HLS on
-the SD card, serves a live MJPEG stream and a playback UI over HTTP, and logs
-motion events to SQLite.
+the SD card, serves a live view over WebRTC and a playback UI over HTTP, and
+logs motion events to SQLite.
 
 ## What it is for
 
@@ -47,7 +47,7 @@ high rate:
 - **HLS recording.** One `.ts` per keyframe by default, organised into
   date-based directories with a per-day event database and automatic cleanup
   when free space runs low.
-- **Live view and playback.** MJPEG stream at `/api/stream`, recordings
+- **Live view and playback.** Live H.264 over WebRTC, recordings
   browsable by date, plus a `/api/status` endpoint reporting uptime, memory,
   load, SoC temperature and the last day with footage.
 - **OSD timestamp** burned into both the recording and the live stream.

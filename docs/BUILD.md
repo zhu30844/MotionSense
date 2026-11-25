@@ -1,6 +1,6 @@
 # Building and installing MotionSense
 
-Last edited: 2026-11-22
+Last edited: 2026-11-25
 
 MotionSense targets the Luckfox Pico Pro Max (Rockchip RV1106, SPI NAND).
 It is built as an application inside the Luckfox SDK, and lives at
@@ -470,13 +470,14 @@ the defaults are used.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `h264.width`, `h264.height` | 1920, 1080 | Recording resolution |
-| `h264.fps` | 30 | Sensor frame rate of the recording stream |
-| `h264.bitrate_kbps` | 4000 | |
-| `h264.gop` | 60 | Frames between keyframes |
-| `mjpeg.width`, `mjpeg.height` | 1920, 1080 | Live view resolution |
-| `mjpeg.fps` | 15 | |
-| `mjpeg.qfactor_max`, `mjpeg.qfactor_min` | 80, 65 | JPEG quality range |
+| `record.width`, `record.height` | 1920, 1080 | Recording resolution |
+| `record.fps` | 30 | Sensor frame rate of the recording stream |
+| `record.bitrate_kbps` | 4000 | |
+| `record.gop` | 60 | Frames between keyframes |
+| `live.width`, `live.height` | 1920, 1080 | Live view resolution |
+| `live.fps` | 30 | Equal to `record.fps` keeps every frame the sensor gives; half of it keeps every other one |
+| `live.bitrate_kbps` | 2000 | |
+| `live.gop` | 30 | Frames between keyframes; a new viewer waits for one |
 | `ivs.width`, `ivs.height` | 640, 360 | Resolution motion is detected at |
 | `ivs.fps` | 15 | |
 | `ivs.md_interval` | 4 | Analyse every N frames |
@@ -532,7 +533,7 @@ vfat/exfat/ntfs/ext2/3/4.
 
 The two processes talk over `CFG_SOCKET_PATH`
 (`/tmp/motionsense-stream.sock`), which the C daemon creates and the agent
-dials for MJPEG frames. It is defined once, in `config.h`; both sides read
+dials for the live view's H264 frames. It is defined once, in `config.h`; both sides read
 that name. Recording does not go through it, so a broken socket costs the
 live view and nothing else.
 

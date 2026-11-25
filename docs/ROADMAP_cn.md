@@ -2,7 +2,7 @@
 
 [English](ROADMAP.md) | 简体中文
 
-最后编辑：2026-11-22
+最后编辑：2026-11-25
 
 ## 2.0 里程碑
 
@@ -32,7 +32,12 @@
 - [ ] 重新设计前端，使用 Vue + Vite
 - [ ] 功能与现有页面持平
 - [ ] 日志页面，同时显示安全模式和失败启动计数
-- [ ] agent 的路径遵循 [API_cn.md](API_cn.md)
+- [x] agent 的路径已按 [API_cn.md](API_cn.md) 的命名空间划分。它的字段规则还有三处没做到：
+- [ ] `/api/status` 去掉格式化好的旧字段（`cpuTemp`、`systemUptime`、`lastRecord` 等）：它们随读取它们的手写页面一起移除
+- [ ] 录像接口返回的时间用 RFC 3339：现在的 `startTime` 只是当天的时刻
+- [ ] `/api/recordings/calendar` 的 `state` 说明含义，而不是一个数字
+- [x] 实时画面改为 H264 经 WebRTC 传输（取代 MJPEG）：agent 在 `POST /api/stream` 应答 offer
+- [x] 用 `<video>` 播放它的实时画面，`/v2/` 下的 Vue 页面和手写页面都已改用它
 
 ### 录制
 - [ ] 优化运动/静止切换逻辑，使运动更连贯
@@ -60,7 +65,6 @@
 - 基础 AI 功能（用 NPU 跑 YOLO 等）
   - 人体检测
 - 环境光照补偿或替代方案，避免误触发运动记录
-- 更好的直播（使用 WebRTC）
 - 认证
 - OTA
 

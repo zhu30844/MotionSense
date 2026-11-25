@@ -1,6 +1,6 @@
 # Roadmap
 
-Last edited: 2026-11-22
+Last edited: 2026-11-25
 
 1.x assumes one board, one SD card, fixed paths, two unsupervised processes
 and hand-written pages. 2.0 replaces those assumptions; most features come
@@ -50,7 +50,17 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [ ] A redesigned front end on Vue and Vite
 - [ ] The same functions as the current pages
 - [ ] A log page, which also shows safe mode and the count of bad boots
-- [ ] The agent's routes follow [API.md](API.md)
+- [x] The agent's routes are in the namespaces of [API.md](API.md). Three of
+      its field rules are still broken:
+- [ ] `/api/status` drops the formatted fields (`cpuTemp`, `systemUptime`,
+      `lastRecord`, …): they go with the hand-written pages that read them
+- [ ] Times from the recordings endpoints are RFC 3339: `startTime` is a time
+      of day today
+- [ ] `state` in `/api/recordings/calendar` says what it means, not a number
+- [x] The live picture is H264 over WebRTC (replaces MJPEG): the agent
+      answers an offer at `POST /api/stream`
+- [x] A live view that plays it in a `<video>`, on the Vue pages under
+      `/v2/` and on the hand-written pages
 
 ### Recording
 - [ ] Better switching between motion and stillness, so an action is recorded
@@ -81,7 +91,6 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
   - Person detection
 - Ambient light compensation, or an alternative, so lighting changes do not
   trigger recording
-- Better live view (WebRTC)
 - Authentication
 - OTA
 

@@ -1,6 +1,6 @@
 # MotionSense Web Interface Documentation
 
-Last edited: 2026-10-24
+Last edited: 2026-11-25
 
 Complete documentation for the MotionSense web interface.
 
@@ -64,7 +64,7 @@ Complete documentation for the MotionSense web interface.
 | `/api/motion_counts` | GET | Daily motion counts | [README.md](README.md#1-motion-counts-api) |
 | `/api/video_segments` | GET | Video segments by date | [README.md](README.md#2-video-segments-api) |
 | `/api/motion_points` | GET | Motion detection points | [README.md](README.md#3-motion-points-api) |
-| `/api/stream` | GET | Live MJPEG stream | [README.md](README.md#4-live-stream-api) |
+| `/api/stream` | POST | WebRTC offer in, answer out; live H.264 follows | [README.md](README.md#4-live-stream-api) |
 
 ## 🛠️ Development Resources
 
@@ -101,7 +101,7 @@ www/html/
 - **Web Server**: Mongoose (lightweight C-based)
 - **Database**: SQLite
 - **Video**: HLS (HTTP Live Streaming)
-- **Stream**: MJPEG
+- **Stream**: H.264 over WebRTC
 
 ### Browser Support
 - Chrome 60+
