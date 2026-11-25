@@ -1,5 +1,5 @@
 #!/bin/bash
-# Regenerate the samples from Big Buck Bunny. Needs curl and ffmpeg with libx264.
+# Regenerate the sample from Big Buck Bunny. Needs curl and ffmpeg with libx264.
 set -euo pipefail
 cd "$(dirname "$(realpath "$0")")"
 
@@ -15,7 +15,4 @@ ffmpeg -v error -y -i "$SRC" -an -pix_fmt yuv420p \
     -x264-params "aud=1:slices=1:repeat-headers=1:scenecut=0" \
     -f h264 sample.h264
 
-ffmpeg -v error -y -i "$SRC" -an -r 15 -pix_fmt yuvj420p \
-    -c:v mjpeg -q:v 20 -f mjpeg sample.mjpeg
-
-ls -l sample.h264 sample.mjpeg
+ls -l sample.h264
