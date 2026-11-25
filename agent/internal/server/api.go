@@ -8,6 +8,7 @@ import (
 	"github.com/motionsense/agent/internal/database"
 	"github.com/motionsense/agent/internal/recording"
 	"github.com/motionsense/agent/internal/stream"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -208,47 +209,33 @@ func playlistDuration(dcimRoot, date, segment string) float64 {
 	return total
 }
 
-func mjpegStream(broker *stream.Broker) http.HandlerFunc {
+// streamHandler answers a browser's SDP offer; the picture goes over WebRTC.
+func streamHandler(live *stream.Live) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mjpegBoundary))
-		w.Header().Set("Cache-Control", "no-cache, no-store")
-		w.Header().Set("Connection", "keep-alive")
-
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		offer, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxOfferBytes))
+		if err != nil {
+			http.Error(w, "offer too large or unreadable", http.StatusBadRequest)
 			return
 		}
-		// Send the headers before waiting for a frame. Without this the
-		// handler blocks in the select below and the client sees nothing at
-		// all — an <img> then fires neither load nor error and the page sits
-		// on "Connecting..." indefinitely when the producer is down.
-		w.WriteHeader(http.StatusOK)
-		flusher.Flush()
-
-		ch := broker.Subscribe()
-		defer broker.Unsubscribe(ch)
-
-		ctx := r.Context()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case frame, ok := <-ch:
-				if !ok {
-					return
-				}
-				fmt.Fprintf(w, "--%s\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n",
-					mjpegBoundary, len(frame))
-				w.Write(frame)
-				fmt.Fprintf(w, "\r\n")
-				flusher.Flush()
-			}
+		answer, err := live.Answer(string(offer))
+		switch {
+		case errors.Is(err, stream.ErrBusy):
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		case errors.Is(err, stream.ErrBadOffer):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		case err != nil:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		w.Header().Set("Content-Type", "application/sdp")
+		w.WriteHeader(http.StatusCreated)
+		io.WriteString(w, answer)
 	}
 }
 
-func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func(http.ResponseWriter, *http.Request) {
+func statusHandler(broker *stream.Broker, live *stream.Live, start time.Time, dcimRoot string) func(http.ResponseWriter, *http.Request) {
 	cpu := &cpuMeter{}
 	cpu.Usage() // the first reading, for the first request to compare with
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -261,7 +248,7 @@ func statusHandler(broker *stream.Broker, start time.Time, dcimRoot string) func
 		now := time.Now()
 		status.Version = Version
 		status.Time = now.Format(time.RFC3339)
-		status.Clients = broker.ClientCount()
+		status.Clients = live.Viewers()
 		// unix.Sysinfo_t's numeric fields are uint64 on 64-bit but uint32 on
 		// 32-bit, which is what the RV1106 target is, so convert explicitly.
 		status.UptimeSeconds = int64(sysInfo.Uptime)

@@ -1,6 +1,6 @@
 # The agent's URLs
 
-Last edited: 2026-11-22
+Last edited: 2026-11-25
 
 What the agent serves, and the rules a new route or field follows. The routes
 are registered in `agent/internal/server/server.go`.
@@ -21,7 +21,7 @@ They do not overlap, so a page route can never collide with an endpoint, and
 | Route | Returns |
 |---|---|
 | `GET /api/status` | Device and recording status |
-| `/api/stream` | The live picture, MJPEG |
+| `POST /api/stream` | Takes a WebRTC offer, returns the answer; the live picture then arrives as H264 over WebRTC |
 | `GET /api/recordings/calendar` | The days that have footage |
 | `GET /api/recordings/{date}` | One day's segments and motion marks |
 | `PUT /api/update` | Takes an update package as the body; 202, then the board reboots and flashes it |
@@ -47,6 +47,12 @@ shows goes in the URL so that it can be bookmarked: `/#/playback/2026-11-22`.
   form. A package that is turned down gets 422 with the reason as text; 409
   means an update is already under way, 501 that this is the simulator. It
   has no authentication: see *Updates* in [BUILD.md](BUILD.md#updates).
+- `POST /api/stream` starts a viewer. The body is the browser's SDP offer as
+  text and the response, 201, is the agent's answer, with every address the
+  board can be reached at already in it: one exchange, nothing to follow.
+  400 is an offer the agent cannot read, 503 means four viewers are already
+  watching. The picture itself does not pass through this server: it goes
+  from the agent to the browser over UDP.
 - The agent never deletes a file. What has to be removed is removed by a
   script on the board.
 

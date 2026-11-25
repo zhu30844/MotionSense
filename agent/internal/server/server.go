@@ -9,10 +9,10 @@ import (
 	"github.com/motionsense/agent/internal/stream"
 )
 
-const mjpegBoundary = "frame"
+const maxOfferBytes = 64 << 10
 
 // New builds the http.Server; the caller owns its lifecycle (ListenAndServe / Shutdown).
-func New(subStaticPath fs.FS, addr string, broker *stream.Broker, storage *database.Storage, dcimRoot string) *http.Server {
+func New(subStaticPath fs.FS, addr string, broker *stream.Broker, live *stream.Live, storage *database.Storage, dcimRoot string) *http.Server {
 	// for APP start time
 	startTime := time.Now()
 
@@ -20,9 +20,9 @@ func New(subStaticPath fs.FS, addr string, broker *stream.Broker, storage *datab
 	// homepage
 	mux.Handle("/", http.FileServer(http.FS(subStaticPath)))
 	// stream
-	mux.HandleFunc("/api/stream", mjpegStream(broker))
+	mux.HandleFunc("POST /api/stream", streamHandler(live))
 	// status
-	mux.HandleFunc("GET /api/status", statusHandler(broker, startTime, dcimRoot))
+	mux.HandleFunc("GET /api/status", statusHandler(broker, live, startTime, dcimRoot))
 	// recordings files: playlists + ts segments for hls.js
 	mux.HandleFunc("GET /media/{date}/{segment}/{file}", mediaHandler(dcimRoot))
 	// calendar
@@ -34,7 +34,7 @@ func New(subStaticPath fs.FS, addr string, broker *stream.Broker, storage *datab
 	return &http.Server{
 		Addr:    addr,
 		Handler: mux,
-		// NOTE: no WriteTimeout — it would kill long-lived MJPEG streams
+		// NOTE: no WriteTimeout — it would cut off a slow update upload
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 }

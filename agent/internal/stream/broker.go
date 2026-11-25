@@ -66,9 +66,3 @@ func (b *Broker) SecondsSinceFrame() float64 {
 	}
 	return time.Since(b.lastFrame).Seconds()
 }
-
-func (b *Broker) ClientCount() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return len(b.clients)
-}
