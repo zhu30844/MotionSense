@@ -50,7 +50,13 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [ ] A redesigned front end on Vue and Vite
 - [ ] The same functions as the current pages
 - [ ] A log page, which also shows safe mode and the count of bad boots
-- [ ] The agent's routes follow [API.md](API.md)
+- [x] The agent's routes are in the namespaces of [API.md](API.md). Three of
+      its field rules are still broken:
+- [ ] `/api/status` drops the formatted fields (`cpuTemp`, `systemUptime`,
+      `lastRecord`, …): they go with the hand-written pages that read them
+- [ ] Times from the recordings endpoints are RFC 3339: `startTime` is a time
+      of day today
+- [ ] `state` in `/api/recordings/calendar` says what it means, not a number
 - [x] The live picture is H264 over WebRTC (replaces MJPEG): the agent
       answers an offer at `POST /api/stream`
 - [x] A live view that plays it in a `<video>`, on the Vue pages under
