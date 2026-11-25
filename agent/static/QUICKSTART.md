@@ -1,6 +1,6 @@
 # MotionSense Web Interface - Quick Start Guide
 
-Last edited: 2026-07-23
+Last edited: 2026-11-25
 
 Get up and running with the MotionSense web interface in minutes.
 
@@ -21,7 +21,7 @@ The web interface has three main sections:
 #### 📹 Live Stream
 - **Purpose**: View real-time video feed
 - **Features**: 
-  - Live MJPEG stream
+  - Live view over WebRTC
   - Connection status indicator
   - Auto-reconnect on connection loss
 

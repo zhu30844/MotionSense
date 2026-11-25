@@ -475,9 +475,9 @@ the defaults are used.
 | `record.bitrate_kbps` | 4000 | |
 | `record.gop` | 60 | Frames between keyframes |
 | `live.width`, `live.height` | 1920, 1080 | Live view resolution |
-| `live.fps` | 15 | Half of `record.fps` halves whatever rate the sensor is running at |
+| `live.fps` | 30 | Equal to `record.fps` keeps every frame the sensor gives; half of it keeps every other one |
 | `live.bitrate_kbps` | 2000 | |
-| `live.gop` | 15 | Frames between keyframes; a new viewer waits for one |
+| `live.gop` | 30 | Frames between keyframes; a new viewer waits for one |
 | `ivs.width`, `ivs.height` | 640, 360 | Resolution motion is detected at |
 | `ivs.fps` | 15 | |
 | `ivs.md_interval` | 4 | Analyse every N frames |

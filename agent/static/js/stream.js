@@ -1,128 +1,79 @@
-// MotionSense Stream App
+// Live picture: H264 over WebRTC, played in the <video>. The same exchange as
+// agent/web/src/live.ts, which replaces this page.
 class StreamApp {
     constructor() {
-        this.streamImage = null;
-        this.statusText = null;
-        this.statusDot = null;
-        this.isStreaming = false;
-        this.retryCount = 0;
-        this.maxRetries = 3;
-        this.retryInterval = 5000; // 5 seconds
+        this.video = null;
+        this.pc = null;
+        this.retryTimer = null;
+        this.retryMs = 3000;
     }
 
     init() {
-        this.streamImage = document.getElementById('streamImage');
-        this.statusText = document.getElementById('statusText');
-        this.statusDot = document.querySelector('.status-dot');
-        
-        if (this.streamImage) {
-            this.initStream();
+        if (this.video) return;
+        this.video = document.getElementById('streamVideo');
+        if (!this.video) return;
+        // A closed tab runs nothing else: close so the agent frees the place.
+        window.addEventListener('pagehide', () => this.stop());
+        window.addEventListener('pageshow', (e) => { if (e.persisted) this.start(); });
+        this.start();
+    }
+
+    stop() {
+        clearTimeout(this.retryTimer);
+        if (this.pc) this.pc.close();
+        this.pc = null;
+    }
+
+    retry() {
+        this.stop();
+        this.retryTimer = setTimeout(() => this.start(), this.retryMs);
+    }
+
+    async start() {
+        this.stop();
+        // No ICE servers: the browser reaches the board directly.
+        const pc = new RTCPeerConnection();
+        this.pc = pc;
+        try {
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            pc.addEventListener('track', (e) => {
+                this.video.srcObject = e.streams[0] || new MediaStream([e.track]);
+            });
+            pc.addEventListener('connectionstatechange', () => {
+                if (pc !== this.pc) return;
+                if (pc.connectionState === 'failed' || pc.connectionState === 'closed') this.retry();
+            });
+
+            await pc.setLocalDescription(await pc.createOffer());
+            await this.gathered(pc);
+            const res = await fetch('/api/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/sdp' },
+                body: pc.localDescription.sdp,
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+        } catch (e) {
+            console.warn('live stream:', e);
+            if (pc === this.pc) this.retry();
         }
     }
 
-    initStream() {
-        // Set up error handling for the stream image
-        this.streamImage.addEventListener('load', () => {
-            this.onStreamSuccess();
+    // The offer carries the browser's addresses; wait for them, a second at most.
+    gathered(pc) {
+        return new Promise((resolve) => {
+            if (pc.iceGatheringState === 'complete') return resolve();
+            const timer = setTimeout(resolve, 1000);
+            pc.addEventListener('icegatheringstatechange', () => {
+                if (pc.iceGatheringState !== 'complete') return;
+                clearTimeout(timer);
+                resolve();
+            });
         });
-
-        this.streamImage.addEventListener('error', () => {
-            this.onStreamError();
-        });
-
-        // Start monitoring stream health
-        this.startHealthCheck();
-    }
-
-    onStreamSuccess() {
-        this.isStreaming = true;
-        this.retryCount = 0;
-        this.updateStatus('connected', '已连接');
-        
-        // Add success animation
-        this.streamImage.style.opacity = '1';
-        this.streamImage.style.transform = 'scale(1)';
-    }
-
-    onStreamError() {
-        this.isStreaming = false;
-        this.updateStatus('error', '连接失败');
-        
-        // Add error animation
-        this.streamImage.style.opacity = '0.7';
-        this.streamImage.style.transform = 'scale(0.98)';
-        
-        // Retry logic
-        if (this.retryCount < this.maxRetries) {
-            this.retryCount++;
-            setTimeout(() => {
-                this.retryStream();
-            }, this.retryInterval);
-        }
-    }
-
-    retryStream() {
-        if (!this.isStreaming) {
-            this.updateStatus('connecting', '重连中...');
-            
-            // Force reload the image
-            const currentSrc = this.streamImage.src;
-            this.streamImage.src = '';
-            setTimeout(() => {
-                this.streamImage.src = currentSrc + '?t=' + Date.now();
-            }, 100);
-        }
-    }
-
-    updateStatus(status, text) {
-        if (this.statusText) {
-            this.statusText.textContent = text;
-        }
-        
-        if (this.statusDot) {
-            this.statusDot.className = 'status-dot';
-            this.statusDot.classList.add(`status-${status}`);
-        }
-    }
-
-    startHealthCheck() {
-        // Periodically check if the stream is still working
-        setInterval(() => {
-            if (this.isStreaming) {
-                // Check if the image is still loading properly
-                const img = new Image();
-                img.onload = () => {
-                    // Stream is still working
-                    this.updateStatus('connected', '已连接');
-                };
-                img.onerror = () => {
-                    // Stream has stopped working
-                    this.onStreamError();
-                };
-                img.src = this.streamImage.src + '?health=' + Date.now();
-            }
-        }, 30000); // Check every 30 seconds
-    }
-
-    // Public method to manually refresh stream
-    refreshStream() {
-        if (this.streamImage) {
-            this.updateStatus('connecting', '刷新中...');
-            this.streamImage.src = this.streamImage.src + '?refresh=' + Date.now();
-        }
-    }
-
-    // Public method to get stream status
-    getStreamStatus() {
-        return {
-            isStreaming: this.isStreaming,
-            retryCount: this.retryCount,
-            maxRetries: this.maxRetries
-        };
     }
 }
 
-// Initialize stream app
 document.addEventListener('DOMContentLoaded', () => {
     window.streamApp = new StreamApp();
-}); 
+    window.streamApp.init();
+});

@@ -2,7 +2,7 @@
 
 [English](DOCUMENTATION.md) | 简体中文
 
-最后编辑：2026-10-24
+最后编辑：2026-11-25
 
 MotionSense Web 界面的完整文档。
 
@@ -66,7 +66,7 @@ MotionSense Web 界面的完整文档。
 | `/api/motion_counts` | GET | 每日运动计数 | [README_cn.md](README_cn.md#1-运动计数-api) |
 | `/api/video_segments` | GET | 按日期获取视频片段 | [README_cn.md](README_cn.md#2-视频片段-api) |
 | `/api/motion_points` | GET | 运动检测点 | [README_cn.md](README_cn.md#3-运动点-api) |
-| `/api/stream` | GET | 实时 MJPEG 视频流 | [README_cn.md](README_cn.md#4-实时视频流-api) |
+| `/api/stream` | POST | 收 WebRTC offer，回 answer；随后是实时 H.264 | [README_cn.md](README_cn.md#4-实时视频流-api) |
 
 ## 🛠️ 开发资源
 
@@ -103,7 +103,7 @@ www/html/
 - **Web 服务器**：Mongoose（基于 C 的轻量级服务器）
 - **数据库**：SQLite
 - **视频**：HLS（HTTP Live Streaming）
-- **视频流**：MJPEG
+- **视频流**：H.264，经 WebRTC
 
 ### 浏览器支持
 - Chrome 60+

@@ -1,6 +1,6 @@
 # MotionSense API Testing Guide
 
-Last edited: 2026-07-23
+Last edited: 2026-11-25
 
 This document provides comprehensive testing examples for all MotionSense web APIs.
 
@@ -26,8 +26,7 @@ curl -X GET "http://192.168.1.1/api/video_segments?date=2025-07-26"
 # Test motion points for specific date
 curl -X GET "http://192.168.1.1/api/motion_points?date=2025-07-26"
 
-# Test live stream (save to file)
-curl -X GET "http://192.168.1.1/api/stream" -o stream.mjpg
+# The live stream is WebRTC and cannot be fetched with curl: open the page
 ```
 
 ### JavaScript Testing Script
@@ -76,7 +75,15 @@ class MotionSenseAPITester {
 
     async testLiveStream() {
         try {
-            const response = await fetch(`${this.baseURL}/api/stream`);
+            // POST an SDP offer; 201 with an answer means the agent will send video
+            const pc = new RTCPeerConnection();
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            await pc.setLocalDescription(await pc.createOffer());
+            const response = await fetch(`${this.baseURL}/api/stream`, {
+                method: 'POST',
+                body: pc.localDescription.sdp
+            });
+            pc.close();
             console.log('✅ Live Stream API Status:', response.status);
             return response.ok;
         } catch (error) {

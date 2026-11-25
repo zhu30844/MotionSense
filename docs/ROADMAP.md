@@ -53,8 +53,8 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [ ] The agent's routes follow [API.md](API.md)
 - [x] The live picture is H264 over WebRTC (replaces MJPEG): the agent
       answers an offer at `POST /api/stream`
-- [ ] A live view that plays it in a `<video>`: until then no page shows the
-      live picture, and it has not been tried in a browser
+- [x] A live view that plays it in a `<video>`, on the Vue pages under
+      `/v2/` and on the hand-written pages
 
 ### Recording
 - [ ] Better switching between motion and stillness, so an action is recorded

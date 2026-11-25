@@ -23,7 +23,7 @@
 #define CFG_VI_H             1080
 #define CFG_VI_BASE_FPS      30
 #define CFG_RECORD_BITRATE   4000
-#define CFG_LIVE_FPS         15
+#define CFG_LIVE_FPS         30
 #define CFG_LIVE_BITRATE     2000
 #define CFG_IVS_W            640
 #define CFG_IVS_H            360

@@ -2,13 +2,13 @@
 
 [English](README.md) | 简体中文
 
-最后编辑：2026-10-24
+最后编辑：2026-11-25
 
 一个现代化、响应式的 Web 界面，用于运行在 Luckfox Pico RV1106 平台上的 MotionSense 监控系统。
 
 ## 🚀 功能特性
 
-- **实时视频流**：带状态指示的实时 MJPEG 视频流
+- **实时视频流**：带状态指示的实时画面，H.264 经 WebRTC 传输
 - **运动检测热力图**：以可视化方式呈现运动强度的交互式日历
 - **视频回放**：带运动点标记的 HLS 视频片段
 - **响应式设计**：适用于桌面和移动设备的现代化 UI
@@ -160,15 +160,16 @@ console.log(data.motion_points);
 
 ### 4. 实时视频流 API
 
-**端点：** `GET /api/stream`
+**端点：** `POST /api/stream`
 
-**说明：** 提供 MJPEG 实时视频流。
+**说明：** 接入一个 WebRTC 观看者。请求体是浏览器的 SDP offer。
 
-**响应：** MJPEG 视频流
+**响应：** 201 和 agent 的 SDP answer；H.264 视频随后经 WebRTC 送达。
 
 **使用示例：**
 ```html
-<img src="/api/stream" alt="Live Stream" />
+<video id="streamVideo" autoplay muted playsinline></video>
+<!-- js/stream.js 负责发出 offer 并播放 answer -->
 ```
 
 ## 🎨 UI 组件

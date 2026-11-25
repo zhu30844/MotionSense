@@ -1,12 +1,12 @@
 # MotionSense Web Interface
 
-Last edited: 2026-07-23
+Last edited: 2026-11-25
 
 A modern, responsive web interface for the MotionSense surveillance system running on Luckfox Pico RV1106 platform.
 
 ## 🚀 Features
 
-- **Live Video Stream**: Real-time MJPEG streaming with status indicators
+- **Live Video Stream**: Real-time H.264 over WebRTC with status indicators
 - **Motion Heatmap**: Interactive calendar with motion intensity visualization
 - **Video Playback**: HLS video segments with motion point markers
 - **Responsive Design**: Modern UI that works on desktop and mobile devices
@@ -158,15 +158,16 @@ console.log(data.motion_points);
 
 ### 4. Live Stream API
 
-**Endpoint:** `GET /api/stream`
+**Endpoint:** `POST /api/stream`
 
-**Description:** Provides MJPEG live video stream.
+**Description:** Starts a WebRTC viewer. The body is the browser's SDP offer.
 
-**Response:** MJPEG video stream
+**Response:** 201 with the agent's SDP answer; the H.264 video then arrives over WebRTC.
 
 **Example Usage:**
 ```html
-<img src="/api/stream" alt="Live Stream" />
+<video id="streamVideo" autoplay muted playsinline></video>
+<!-- js/stream.js makes the offer and plays the answer -->
 ```
 
 ## 🎨 UI Components
