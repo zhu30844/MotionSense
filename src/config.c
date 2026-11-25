@@ -39,11 +39,11 @@ static const field_t s_fields[] = {
     F(h264, bitrate_kbps, T_U32),
     F(h264, gop,          T_INT),
 
-    F(mjpeg, width,       T_U32),
-    F(mjpeg, height,      T_U32),
-    F(mjpeg, fps,         T_INT),
-    F(mjpeg, qfactor_max, T_U32),
-    F(mjpeg, qfactor_min, T_U32),
+    F(live, width,        T_U32),
+    F(live, height,       T_U32),
+    F(live, fps,          T_INT),
+    F(live, bitrate_kbps, T_U32),
+    F(live, gop,          T_INT),
 
     F(ivs, width,              T_U32),
     F(ivs, height,             T_U32),
@@ -92,11 +92,11 @@ static void config_defaults(ms_config_t *c)
     c->h264.bitrate_kbps = CFG_H264_BITRATE;
     c->h264.gop          = CFG_FPS_HIGH * 2;
 
-    c->mjpeg.width       = CFG_VI_W;
-    c->mjpeg.height      = CFG_VI_H;
-    c->mjpeg.fps         = 15;
-    c->mjpeg.qfactor_max = 80;
-    c->mjpeg.qfactor_min = 65;
+    c->live.width        = CFG_VI_W;
+    c->live.height       = CFG_VI_H;
+    c->live.fps          = CFG_LIVE_FPS;
+    c->live.bitrate_kbps = CFG_LIVE_BITRATE;
+    c->live.gop          = CFG_LIVE_FPS;
 
     c->ivs.width         = CFG_IVS_W;
     c->ivs.height        = CFG_IVS_H;

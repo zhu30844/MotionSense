@@ -28,11 +28,11 @@ extern "C" {
 // VENC Entities
 #define VENC_DEV_ID                 0   // VENC device, 1 device from 0 only
 #define VENC_CHN_H264               0   // H264 channel, 0
-#define VENC_CHN_MJPEG              1   // MJPEG(stream) channel, 1
+#define VENC_CHN_LIVE               1   // live view channel, H264 too
 
 // RGN Entities
 #define OSD_RGN_H264                0   // OSD region for H264 channel
-#define OSD_RGN_MJPEG               1   // OSD region for MJPEG channel
+#define OSD_RGN_LIVE                1   // OSD region for the live channel
 
 /* CFG_ISP_IQ_DIR and CFG_SOCKET_PATH live in config.h; they used to be
  * duplicated here, and the socket had a second name (MJPEG_SOCK_PATH) that

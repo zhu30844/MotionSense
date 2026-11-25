@@ -41,14 +41,14 @@
 #include <sys/un.h>
 
 #define OSD_RGN_H264 0  /* RGN handle for H264 channel */
-#define OSD_RGN_MJPEG 1 /* RGN handle for MJPEG channel */
+#define OSD_RGN_LIVE 1 /* RGN handle for the live channel */
 
 static atomic_bool s_producers_run;
 static pthread_t s_h264_thr;
-static pthread_t s_mjpeg_thr;
+static pthread_t s_live_thr;
 static pthread_t s_ivs_thr;
 static pthread_t s_osd_thr;
-static bool s_h264_started, s_mjpeg_started, s_ivs_started, s_osd_started;
+static bool s_h264_started, s_live_started, s_ivs_started, s_osd_started;
 static bool s_osd_inited;
 
 // accepted client fd, -1 = no client
@@ -433,9 +433,9 @@ static void motion_pipeline_deinit(void)
 }
 
 /* ------------------------------------------------------------------ */
-/* MJPEG preview                                                      */
+/* Live view: H264 for WebRTC                                         */
 /* ------------------------------------------------------------------ */
-static int stream_pipeline_init(void)
+static int live_pipeline_init(void)
 {
     VI_CHN_ATTR_S vi = {0};
     VENC_CHN_ATTR_S ve = {0};
@@ -443,10 +443,10 @@ static int stream_pipeline_init(void)
     {
         vi.stIspOpt.u32BufCount = 2;
         vi.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
-        vi.stIspOpt.stMaxSize.u32Width = g_cfg.mjpeg.width;
-        vi.stIspOpt.stMaxSize.u32Height = g_cfg.mjpeg.height;
-        vi.stSize.u32Width = g_cfg.mjpeg.width;
-        vi.stSize.u32Height = g_cfg.mjpeg.height;
+        vi.stIspOpt.stMaxSize.u32Width = g_cfg.live.width;
+        vi.stIspOpt.stMaxSize.u32Height = g_cfg.live.height;
+        vi.stSize.u32Width = g_cfg.live.width;
+        vi.stSize.u32Height = g_cfg.live.height;
         vi.enPixelFormat = RK_FMT_YUV420SP;
         vi.enCompressMode = COMPRESS_MODE_NONE;
         vi.u32Depth = 1;
@@ -461,24 +461,23 @@ static int stream_pipeline_init(void)
     }
 
     {
-        /* TODO: bitrate and keyframe interval from the config */
         ve.stVencAttr.enType = RK_VIDEO_ID_AVC;
         ve.stVencAttr.u32Profile = 100;
         ve.stVencAttr.enPixelFormat = RK_FMT_YUV420SP;
-        ve.stVencAttr.u32MaxPicWidth = g_cfg.mjpeg.width;
-        ve.stVencAttr.u32MaxPicHeight = g_cfg.mjpeg.height;
-        ve.stVencAttr.u32PicWidth = g_cfg.mjpeg.width;
-        ve.stVencAttr.u32PicHeight = g_cfg.mjpeg.height;
-        ve.stVencAttr.u32VirWidth = g_cfg.mjpeg.width;
-        ve.stVencAttr.u32VirHeight = g_cfg.mjpeg.height;
+        ve.stVencAttr.u32MaxPicWidth = g_cfg.live.width;
+        ve.stVencAttr.u32MaxPicHeight = g_cfg.live.height;
+        ve.stVencAttr.u32PicWidth = g_cfg.live.width;
+        ve.stVencAttr.u32PicHeight = g_cfg.live.height;
+        ve.stVencAttr.u32VirWidth = g_cfg.live.width;
+        ve.stVencAttr.u32VirHeight = g_cfg.live.height;
         ve.stVencAttr.u32StreamBufCnt = 3;
-        ve.stVencAttr.u32BufSize = g_cfg.mjpeg.width * g_cfg.mjpeg.height;
+        ve.stVencAttr.u32BufSize = g_cfg.live.width * g_cfg.live.height;
         ve.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
-        ve.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.mjpeg.fps;
-        ve.stRcAttr.stH264Cbr.u32BitRate = 2000;
+        ve.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.live.gop;
+        ve.stRcAttr.stH264Cbr.u32BitRate = g_cfg.live.bitrate_kbps;
         ve.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)g_cfg.h264.fps;
         ve.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
-        ve.stRcAttr.stH264Cbr.fr32DstFrameRateNum = (uint32_t)g_cfg.mjpeg.fps;
+        ve.stRcAttr.stH264Cbr.fr32DstFrameRateNum = (uint32_t)g_cfg.live.fps;
         ve.stRcAttr.stH264Cbr.fr32DstFrameRateDen = 1;
         ve.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
     }
@@ -488,23 +487,23 @@ static int stream_pipeline_init(void)
         param.stFrameRate.bEnable = RK_TRUE;
         param.stFrameRate.s32SrcFrmRateNum = g_cfg.h264.fps;
         param.stFrameRate.s32SrcFrmRateDen = 1;
-        param.stFrameRate.s32DstFrmRateNum = g_cfg.mjpeg.fps;
+        param.stFrameRate.s32DstFrmRateNum = g_cfg.live.fps;
         param.stFrameRate.s32DstFrmRateDen = 1;
     }
-    RK_MPI_VENC_SetChnParam(VENC_CHN_MJPEG, &param);
+    RK_MPI_VENC_SetChnParam(VENC_CHN_LIVE, &param);
 
-    if (RK_MPI_VENC_CreateChn(VENC_CHN_MJPEG, &ve) != RK_SUCCESS)
+    if (RK_MPI_VENC_CreateChn(VENC_CHN_LIVE, &ve) != RK_SUCCESS)
     {
-        MS_LOG_ERROR("VENC MJPEG preview create failed\n");
+        MS_LOG_ERROR("VENC live create failed\n");
         return -1;
     }
 
     VENC_RECV_PIC_PARAM_S recv = {.s32RecvPicNum = -1};
-    RK_MPI_VENC_StartRecvFrame(VENC_CHN_MJPEG, &recv);
+    RK_MPI_VENC_StartRecvFrame(VENC_CHN_LIVE, &recv);
 
     if (RK_MPI_SYS_Bind(
             &(MPP_CHN_S){RK_ID_VI, VI_PIPE_ID, VI_PHY_CHN_SELF},
-            &(MPP_CHN_S){RK_ID_VENC, VENC_DEV_ID, VENC_CHN_MJPEG}) != RK_SUCCESS)
+            &(MPP_CHN_S){RK_ID_VENC, VENC_DEV_ID, VENC_CHN_LIVE}) != RK_SUCCESS)
     {
         MS_LOG_ERROR("bind VI-VENC failed\n");
         return -1;
@@ -512,13 +511,13 @@ static int stream_pipeline_init(void)
     return 0;
 }
 
-static void stream_pipeline_deinit(void)
+static void live_pipeline_deinit(void)
 {
     RK_MPI_SYS_UnBind(
         &(MPP_CHN_S){RK_ID_VI, VI_PIPE_ID, VI_PHY_CHN_SELF},
-        &(MPP_CHN_S){RK_ID_VENC, VENC_DEV_ID, VENC_CHN_MJPEG});
-    RK_MPI_VENC_StopRecvFrame(VENC_CHN_MJPEG);
-    RK_MPI_VENC_DestroyChn(VENC_CHN_MJPEG);
+        &(MPP_CHN_S){RK_ID_VENC, VENC_DEV_ID, VENC_CHN_LIVE});
+    RK_MPI_VENC_StopRecvFrame(VENC_CHN_LIVE);
+    RK_MPI_VENC_DestroyChn(VENC_CHN_LIVE);
     RK_MPI_VI_DisableChn(VI_PIPE_ID, VI_PHY_CHN_SELF);
 }
 
@@ -618,7 +617,7 @@ static void *h264_thread(void *arg)
     return NULL;
 }
 
-static void *mjpeg_thread(void *arg)
+static void *live_thread(void *arg)
 {
     (void)arg;
     VENC_STREAM_S frame = {0};
@@ -628,12 +627,12 @@ static void *mjpeg_thread(void *arg)
 
     while (atomic_load(&s_producers_run))
     {
-        int ret = RK_MPI_VENC_GetStream(VENC_CHN_MJPEG, &frame, 0);
+        int ret = RK_MPI_VENC_GetStream(VENC_CHN_LIVE, &frame, 0);
         if (ret != RK_SUCCESS)
             continue;
         void *p = RK_MPI_MB_Handle2VirAddr(frame.pstPack->pMbBlk);
         web_sock_push(p, frame.pstPack->u32Len);
-        RK_MPI_VENC_ReleaseStream(VENC_CHN_MJPEG, &frame);
+        RK_MPI_VENC_ReleaseStream(VENC_CHN_LIVE, &frame);
     }
     free(frame.pstPack);
     return NULL;
@@ -681,7 +680,7 @@ static void *ivs_thread(void *arg)
 /* ------------------------------------------------------------------ */
 /* OSD timestamp overlay                                               */
 /*                                                                     */
-/* One OVERLAY_RGN per VENC channel (H264=0, MJPEG=1).                */
+/* One OVERLAY_RGN per VENC channel (record=0, live=1).               */
 /* The osd_thread re-renders and uploads a new ARGB8888 bitmap once    */
 /* per second. Region size is fixed to the rendered text width at      */
 /* init time; width never changes for a HH:MM:SS string.              */
@@ -819,7 +818,7 @@ static void *osd_thread(void *arg)
         draw_argb8888_text(buf, s_osd_w, s_osd_h, wch);
 
         osd_upload(OSD_RGN_H264, buf, s_osd_w, s_osd_h);
-        osd_upload(OSD_RGN_MJPEG, buf, s_osd_w, s_osd_h);
+        osd_upload(OSD_RGN_LIVE, buf, s_osd_w, s_osd_h);
     }
 
     free(buf);
@@ -845,7 +844,7 @@ static int osd_init(void)
 
     if (osd_rgn_create(OSD_RGN_H264, VENC_CHN_H264, s_osd_w, s_osd_h) != 0)
         return -1;
-    if (osd_rgn_create(OSD_RGN_MJPEG, VENC_CHN_MJPEG, s_osd_w, s_osd_h) != 0)
+    if (osd_rgn_create(OSD_RGN_LIVE, VENC_CHN_LIVE, s_osd_w, s_osd_h) != 0)
     {
         osd_rgn_destroy(OSD_RGN_H264, VENC_CHN_H264);
         return -1;
@@ -859,7 +858,7 @@ static int osd_init(void)
         osd_get_time_wch(wch, MAX_WCH_BYTE);
         draw_argb8888_text(buf, s_osd_w, s_osd_h, wch);
         osd_upload(OSD_RGN_H264, buf, s_osd_w, s_osd_h);
-        osd_upload(OSD_RGN_MJPEG, buf, s_osd_w, s_osd_h);
+        osd_upload(OSD_RGN_LIVE, buf, s_osd_w, s_osd_h);
         free(buf);
     }
 
@@ -870,7 +869,7 @@ static int osd_init(void)
 static void osd_deinit(void)
 {
     osd_rgn_destroy(OSD_RGN_H264, VENC_CHN_H264);
-    osd_rgn_destroy(OSD_RGN_MJPEG, VENC_CHN_MJPEG);
+    osd_rgn_destroy(OSD_RGN_LIVE, VENC_CHN_LIVE);
     destroy_font();
     MS_LOG_INFO("OSD down\n");
 }
@@ -888,7 +887,7 @@ int media_init(app_ctx_t *ctx)
         goto fail_vi;
     if (record_pipeline_init() != 0)
         goto fail_aiq;
-    if (stream_pipeline_init() != 0)
+    if (live_pipeline_init() != 0)
         goto fail_pipe0;
     if (motion_pipeline_init() != 0)
         goto fail_pipe1;
@@ -913,9 +912,9 @@ int media_init(app_ctx_t *ctx)
     if (pthread_create(&s_h264_thr, NULL, h264_thread, ctx) != 0)
         goto fail_threads;
     s_h264_started = true;
-    if (pthread_create(&s_mjpeg_thr, NULL, mjpeg_thread, ctx) != 0)
+    if (pthread_create(&s_live_thr, NULL, live_thread, ctx) != 0)
         goto fail_threads;
-    s_mjpeg_started = true;
+    s_live_started = true;
     if (pthread_create(&s_ivs_thr, NULL, ivs_thread, ctx) != 0)
         goto fail_threads;
     s_ivs_started = true;
@@ -927,14 +926,14 @@ fail_threads:
     atomic_store(&s_producers_run, false);
     if (s_h264_started)
         pthread_join(s_h264_thr, NULL);
-    if (s_mjpeg_started)
-        pthread_join(s_mjpeg_thr, NULL);
+    if (s_live_started)
+        pthread_join(s_live_thr, NULL);
     if (s_ivs_started)
         pthread_join(s_ivs_thr, NULL);
-    s_h264_started = s_mjpeg_started = s_ivs_started = false;
+    s_h264_started = s_live_started = s_ivs_started = false;
     motion_pipeline_deinit();
 fail_pipe1:
-    stream_pipeline_deinit();
+    live_pipeline_deinit();
 fail_pipe0:
     record_pipeline_deinit();
 fail_aiq:
@@ -956,7 +955,7 @@ void media_stop(app_ctx_t *ctx)
 
     /* Unblock any GetStream call still parked in VENC. */
     RK_MPI_VENC_StopRecvFrame(VENC_CHN_H264);
-    RK_MPI_VENC_StopRecvFrame(VENC_CHN_MJPEG);
+    RK_MPI_VENC_StopRecvFrame(VENC_CHN_LIVE);
 
     if (s_osd_started)
     {
@@ -968,10 +967,10 @@ void media_stop(app_ctx_t *ctx)
         pthread_join(s_h264_thr, NULL);
         s_h264_started = false;
     }
-    if (s_mjpeg_started)
+    if (s_live_started)
     {
-        pthread_join(s_mjpeg_thr, NULL);
-        s_mjpeg_started = false;
+        pthread_join(s_live_thr, NULL);
+        s_live_started = false;
     }
     if (s_ivs_started)
     {
@@ -1003,7 +1002,7 @@ void media_deinit(app_ctx_t *ctx)
         s_osd_inited = false;
     }
     motion_pipeline_deinit();
-    stream_pipeline_deinit();
+    live_pipeline_deinit();
     record_pipeline_deinit();
     aiq_stop();
     vi_dev_deinit();

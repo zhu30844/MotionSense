@@ -32,17 +32,18 @@ func TestLiveSendsFramesToAViewer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	broker := NewBroker()
 	live, err := NewLive()
 	if err != nil {
 		t.Fatal(err)
 	}
-	go live.Run(ctx, broker)
+	if age := live.SecondsSinceFrame(); age != -1 {
+		t.Fatalf("SecondsSinceFrame() = %v before any frame", age)
+	}
 	go func() {
 		// One IDR NAL unit after an Annex B start code.
-		frame := Frame{0, 0, 0, 1, 0x65, 1, 2, 3, 4}
+		frame := []byte{0, 0, 0, 1, 0x65, 1, 2, 3, 4}
 		for ctx.Err() == nil {
-			broker.Publish(frame)
+			live.Write(frame)
 			time.Sleep(20 * time.Millisecond)
 		}
 	}()

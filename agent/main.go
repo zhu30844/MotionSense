@@ -79,14 +79,12 @@ func main() {
 	}
 	defer store.Close()
 
-	// stream: C process -> broker -> WebRTC track -> browsers
-	broker := stream.NewBroker()
-	go stream.ReceiveFrames(ctx, socketPath, broker)
+	// stream: C process -> WebRTC track -> browsers
 	live, err := stream.NewLive()
 	if err != nil {
 		log.Fatalf("live stream: %v", err)
 	}
-	go live.Run(ctx, broker)
+	go stream.ReceiveFrames(ctx, socketPath, live)
 
 	// webserver
 	port := portUnprivileged
@@ -94,7 +92,7 @@ func main() {
 		port = portPrivileged
 	}
 
-	srv := server.New(sub, port, broker, live, store, dcimRoot)
+	srv := server.New(sub, port, live, store, dcimRoot)
 	go func() {
 		log.Printf("listening on %s (%s)", port, listenURLs(port))
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {

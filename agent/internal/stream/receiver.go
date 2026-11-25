@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func ReceiveFrames(ctx context.Context, socketPath string, broker *Broker) {
+func ReceiveFrames(ctx context.Context, socketPath string, live *Live) {
 	var dialer net.Dialer
 	for {
 		conn, err := dialer.DialContext(ctx, "unix", socketPath)
@@ -27,7 +27,7 @@ func ReceiveFrames(ctx context.Context, socketPath string, broker *Broker) {
 			continue
 		}
 		log.Printf("[stream] connected to %s\n", socketPath)
-		readFrames(ctx, conn, broker)
+		readFrames(ctx, conn, live)
 		if ctx.Err() != nil {
 			return
 		}
@@ -35,7 +35,7 @@ func ReceiveFrames(ctx context.Context, socketPath string, broker *Broker) {
 	}
 }
 
-func readFrames(ctx context.Context, conn net.Conn, broker *Broker) {
+func readFrames(ctx context.Context, conn net.Conn, live *Live) {
 	defer conn.Close()
 	// unblock io.ReadFull when ctx is cancelled by closing the conn
 	done := make(chan struct{})
@@ -64,6 +64,6 @@ func readFrames(ctx context.Context, conn net.Conn, broker *Broker) {
 			log.Printf("[stream] read frame error: %s", err)
 			return
 		}
-		broker.Publish(frame)
+		live.Write(frame)
 	}
 }

@@ -235,7 +235,7 @@ func streamHandler(live *stream.Live) http.HandlerFunc {
 	}
 }
 
-func statusHandler(broker *stream.Broker, live *stream.Live, start time.Time, dcimRoot string) func(http.ResponseWriter, *http.Request) {
+func statusHandler(live *stream.Live, start time.Time, dcimRoot string) func(http.ResponseWriter, *http.Request) {
 	cpu := &cpuMeter{}
 	cpu.Usage() // the first reading, for the first request to compare with
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +285,7 @@ func statusHandler(broker *stream.Broker, live *stream.Live, start time.Time, dc
 
 		// Two seconds is comfortably longer than a frame interval at the
 		// lowest capture rate this records at.
-		if age := broker.SecondsSinceFrame(); age >= 0 && age < 2 {
+		if age := live.SecondsSinceFrame(); age >= 0 && age < 2 {
 			status.FrameFlow = true
 		}
 

@@ -1,7 +1,6 @@
 package stream
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,6 +26,8 @@ var (
 type Live struct {
 	track   *webrtc.TrackLocalStaticSample
 	viewers atomic.Int32
+	// When the last frame arrived, in Unix nanoseconds; 0 before the first.
+	lastFrame atomic.Int64
 }
 
 func NewLive() (*Live, error) {
@@ -38,27 +39,24 @@ func NewLive() (*Live, error) {
 	return &Live{track: track}, nil
 }
 
-// Run writes the broker's frames to the track until ctx ends.
-func (l *Live) Run(ctx context.Context, broker *Broker) {
-	ch := broker.Subscribe()
-	defer broker.Unsubscribe(ch)
-
-	var last time.Time
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case frame := <-ch:
-			// The socket carries no timestamps: use the gap between frames.
-			now := time.Now()
-			d := firstFrameDuration
-			if !last.IsZero() {
-				d = min(now.Sub(last), time.Second)
-			}
-			last = now
-			_ = l.track.WriteSample(media.Sample{Data: frame, Duration: d})
-		}
+// Write sends one frame to every viewer. It is called from one goroutine.
+func (l *Live) Write(frame []byte) {
+	// The socket carries no timestamps: use the gap between frames.
+	now := time.Now().UnixNano()
+	d := firstFrameDuration
+	if last := l.lastFrame.Swap(now); last != 0 {
+		d = min(time.Duration(now-last), time.Second)
 	}
+	_ = l.track.WriteSample(media.Sample{Data: frame, Duration: d})
+}
+
+// SecondsSinceFrame is how long ago the last frame arrived, -1 if none has.
+func (l *Live) SecondsSinceFrame() float64 {
+	last := l.lastFrame.Load()
+	if last == 0 {
+		return -1
+	}
+	return time.Since(time.Unix(0, last)).Seconds()
 }
 
 // Viewers is the number of browsers connected or connecting.

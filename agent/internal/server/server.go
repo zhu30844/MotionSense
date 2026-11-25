@@ -12,7 +12,7 @@ import (
 const maxOfferBytes = 64 << 10
 
 // New builds the http.Server; the caller owns its lifecycle (ListenAndServe / Shutdown).
-func New(subStaticPath fs.FS, addr string, broker *stream.Broker, live *stream.Live, storage *database.Storage, dcimRoot string) *http.Server {
+func New(subStaticPath fs.FS, addr string, live *stream.Live, storage *database.Storage, dcimRoot string) *http.Server {
 	// for APP start time
 	startTime := time.Now()
 
@@ -22,7 +22,7 @@ func New(subStaticPath fs.FS, addr string, broker *stream.Broker, live *stream.L
 	// stream
 	mux.HandleFunc("POST /api/stream", streamHandler(live))
 	// status
-	mux.HandleFunc("GET /api/status", statusHandler(broker, live, startTime, dcimRoot))
+	mux.HandleFunc("GET /api/status", statusHandler(live, startTime, dcimRoot))
 	// recordings files: playlists + ts segments for hls.js
 	mux.HandleFunc("GET /media/{date}/{segment}/{file}", mediaHandler(dcimRoot))
 	// calendar

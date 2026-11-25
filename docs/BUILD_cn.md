@@ -2,7 +2,7 @@
 
 [English](BUILD.md) | 简体中文
 
-最后编辑：2026-11-22
+最后编辑：2026-11-25
 
 MotionSense 的目标硬件是 Luckfox Pico Pro Max（Rockchip RV1106，SPI NAND）。它作为 Luckfox SDK 内的一个应用进行构建，位于该 SDK 一个 fork 中的 `project/app/motionsense`：
 
@@ -335,9 +335,10 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 | `h264.fps` | 30 | 录制流的传感器帧率 |
 | `h264.bitrate_kbps` | 4000 | |
 | `h264.gop` | 60 | 关键帧间隔，单位为帧 |
-| `mjpeg.width`、`mjpeg.height` | 1920、1080 | 实时画面分辨率 |
-| `mjpeg.fps` | 15 | |
-| `mjpeg.qfactor_max`、`mjpeg.qfactor_min` | 80、65 | JPEG 质量范围 |
+| `live.width`、`live.height` | 1920、1080 | 实时画面分辨率 |
+| `live.fps` | 15 | 设为 `h264.fps` 的一半时，得到的是传感器当前帧率的一半 |
+| `live.bitrate_kbps` | 2000 | |
+| `live.gop` | 15 | 关键帧间隔，单位为帧；新观看者要等到一个关键帧 |
 | `ivs.width`、`ivs.height` | 640、360 | 运动检测所用的分辨率 |
 | `ivs.fps` | 15 | |
 | `ivs.md_interval` | 4 | 每 N 帧分析一次 |
@@ -372,7 +373,7 @@ AWST-8
 
 `S99motionsense` 从原厂 `rkipc` 应用接管摄像头，然后启动两个程序。两个程序各自等待存储，等多久都行：之后守护进程创建 `MotionSense/`，在没有配置时写出 `config.json`，并把 vendor 库的 stderr 接到 `motionsense.log`。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
 
-两个进程通过 `CFG_SOCKET_PATH`（`/tmp/motionsense-stream.sock`）通信，该 socket 由 C 守护进程创建，agent 连接它获取 MJPEG 帧。它只在 `config.h` 中定义一次；两端都读取这个名称。录制不经过它，因此 socket 故障只会损失实时画面，不影响其他功能。
+两个进程通过 `CFG_SOCKET_PATH`（`/tmp/motionsense-stream.sock`）通信，该 socket 由 C 守护进程创建，agent 连接它获取实时画面的 H264 帧。它只在 `config.h` 中定义一次；两端都读取这个名称。录制不经过它，因此 socket 故障只会损失实时画面，不影响其他功能。
 
 正常启动的情况如下：
 
