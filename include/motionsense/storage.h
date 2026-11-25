@@ -9,8 +9,7 @@ extern "C" {
 
 /*
  * Starts the writer thread that drains ctx->vq into HLS ts/m3u8 files
- * and records metadata in SQLite. Also ensures the MJPEG symlink is valid
- * and the VideoMetadata.db exists.
+ * and records metadata in SQLite. Also ensures VideoMetadata.db exists.
  */
 int  storage_init(app_ctx_t *ctx);
 

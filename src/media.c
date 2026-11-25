@@ -40,15 +40,15 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 
-#define OSD_RGN_H264 0  /* RGN handle for H264 channel */
+#define OSD_RGN_RECORD 0 /* RGN handle for the record channel */
 #define OSD_RGN_LIVE 1 /* RGN handle for the live channel */
 
 static atomic_bool s_producers_run;
-static pthread_t s_h264_thr;
+static pthread_t s_record_thr;
 static pthread_t s_live_thr;
 static pthread_t s_ivs_thr;
 static pthread_t s_osd_thr;
-static bool s_h264_started, s_live_started, s_ivs_started, s_osd_started;
+static bool s_record_started, s_live_started, s_ivs_started, s_osd_started;
 static bool s_osd_inited;
 
 // accepted client fd, -1 = no client
@@ -223,10 +223,10 @@ static int venc_set_framerate(int chn, int fps)
         MS_LOG_ERROR("VENC_GetChnAttr(%d) = %#x\n", chn, ret);
         return -1;
     }
-    attr.stRcAttr.stH264Cbr.u32BitRate = g_cfg.h264.bitrate_kbps;
+    attr.stRcAttr.stH264Cbr.u32BitRate = g_cfg.record.bitrate_kbps;
     attr.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)fps;
     attr.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
-    attr.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.h264.gop;
+    attr.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.record.gop;
     ret = RK_MPI_VENC_SetChnAttr(chn, &attr);
     if (ret != RK_SUCCESS)
     {
@@ -237,7 +237,7 @@ static int venc_set_framerate(int chn, int fps)
 }
 
 /* ------------------------------------------------------------------ */
-/* H264 main record stream                                            */
+/* Record stream: H264 for HLS                                        */
 /* ------------------------------------------------------------------ */
 static int record_pipeline_init(void)
 {
@@ -247,18 +247,18 @@ static int record_pipeline_init(void)
     {
         vi.stIspOpt.u32BufCount = 2;
         vi.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
-        vi.stIspOpt.stMaxSize.u32Width = g_cfg.h264.width;
-        vi.stIspOpt.stMaxSize.u32Height = g_cfg.h264.height;
-        vi.stSize.u32Width = g_cfg.h264.width;
-        vi.stSize.u32Height = g_cfg.h264.height;
+        vi.stIspOpt.stMaxSize.u32Width = g_cfg.record.width;
+        vi.stIspOpt.stMaxSize.u32Height = g_cfg.record.height;
+        vi.stSize.u32Width = g_cfg.record.width;
+        vi.stSize.u32Height = g_cfg.record.height;
         vi.enPixelFormat = RK_FMT_YUV420SP;
         vi.u32Depth = 1;
         vi.enCompressMode = COMPRESS_MODE_NONE;
-        vi.stFrameRate.s32SrcFrameRate = g_cfg.h264.fps;
-        vi.stFrameRate.s32DstFrameRate = g_cfg.h264.fps;
+        vi.stFrameRate.s32SrcFrameRate = g_cfg.record.fps;
+        vi.stFrameRate.s32DstFrameRate = g_cfg.record.fps;
     }
-    if (RK_MPI_VI_SetChnAttr(VI_DEV_ID, VENC_CHN_H264, &vi) != RK_SUCCESS ||
-        RK_MPI_VI_EnableChn(VI_DEV_ID, VENC_CHN_H264) != RK_SUCCESS)
+    if (RK_MPI_VI_SetChnAttr(VI_DEV_ID, VENC_CHN_RECORD, &vi) != RK_SUCCESS ||
+        RK_MPI_VI_EnableChn(VI_DEV_ID, VENC_CHN_RECORD) != RK_SUCCESS)
     {
         MS_LOG_ERROR("VI chn 0 failed\n");
         return -1;
@@ -269,35 +269,35 @@ static int record_pipeline_init(void)
         ve.stVencAttr.enType = RK_VIDEO_ID_AVC;
         ve.stVencAttr.u32Profile = 100;
         ve.stVencAttr.enPixelFormat = RK_FMT_YUV420SP;
-        ve.stVencAttr.u32MaxPicWidth = g_cfg.h264.width;
-        ve.stVencAttr.u32MaxPicHeight = g_cfg.h264.height;
-        ve.stVencAttr.u32PicWidth = g_cfg.h264.width;
-        ve.stVencAttr.u32PicHeight = g_cfg.h264.height;
-        ve.stVencAttr.u32VirWidth = g_cfg.h264.width;
-        ve.stVencAttr.u32VirHeight = g_cfg.h264.height;
+        ve.stVencAttr.u32MaxPicWidth = g_cfg.record.width;
+        ve.stVencAttr.u32MaxPicHeight = g_cfg.record.height;
+        ve.stVencAttr.u32PicWidth = g_cfg.record.width;
+        ve.stVencAttr.u32PicHeight = g_cfg.record.height;
+        ve.stVencAttr.u32VirWidth = g_cfg.record.width;
+        ve.stVencAttr.u32VirHeight = g_cfg.record.height;
         ve.stVencAttr.u32StreamBufCnt = 4;
-        ve.stVencAttr.u32BufSize = g_cfg.h264.width * g_cfg.h264.height * 3 / 2;
+        ve.stVencAttr.u32BufSize = g_cfg.record.width * g_cfg.record.height * 3 / 2;
         ve.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
-        ve.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.h264.gop;
-        ve.stRcAttr.stH264Cbr.u32BitRate = g_cfg.h264.bitrate_kbps;
-        ve.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)g_cfg.h264.fps;
+        ve.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.record.gop;
+        ve.stRcAttr.stH264Cbr.u32BitRate = g_cfg.record.bitrate_kbps;
+        ve.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)g_cfg.record.fps;
         ve.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
         ve.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
     }
-    if (RK_MPI_VENC_CreateChn(VENC_CHN_H264, &ve) != RK_SUCCESS)
+    if (RK_MPI_VENC_CreateChn(VENC_CHN_RECORD, &ve) != RK_SUCCESS)
     {
         MS_LOG_ERROR("VENC 0 create failed\n");
         return -1;
     }
 
-    RK_MPI_VENC_EnableMotionDeblur(VENC_CHN_H264, RK_TRUE);
-    RK_MPI_VENC_SetMotionDeblurStrength(VENC_CHN_H264, 3);
+    RK_MPI_VENC_EnableMotionDeblur(VENC_CHN_RECORD, RK_TRUE);
+    RK_MPI_VENC_SetMotionDeblurStrength(VENC_CHN_RECORD, 3);
 
     VENC_DEBREATHEFFECT_S debrth = {.bEnable = RK_TRUE, .s32Strength1 = 16};
-    RK_MPI_VENC_SetDeBreathEffect(VENC_CHN_H264, &debrth);
+    RK_MPI_VENC_SetDeBreathEffect(VENC_CHN_RECORD, &debrth);
 
     VENC_RC_PARAM_S rcp;
-    RK_MPI_VENC_GetRcParam(VENC_CHN_H264, &rcp);
+    RK_MPI_VENC_GetRcParam(VENC_CHN_RECORD, &rcp);
     {
         rcp.stParamH264.u32MinQp = 10;
         rcp.stParamH264.u32FrmMinIQp = 26;
@@ -305,38 +305,38 @@ static int record_pipeline_init(void)
         rcp.stParamH264.u32FrmMaxIQp = 51;
         rcp.stParamH264.u32FrmMaxQp = 51;
     }
-    RK_MPI_VENC_SetRcParam(VENC_CHN_H264, &rcp);
+    RK_MPI_VENC_SetRcParam(VENC_CHN_RECORD, &rcp);
 
     VENC_ANTI_RING_S ring;
-    RK_MPI_VENC_GetAntiRing(VENC_CHN_H264, &ring);
+    RK_MPI_VENC_GetAntiRing(VENC_CHN_RECORD, &ring);
     ring.u32AntiRing = 2;
-    RK_MPI_VENC_SetAntiRing(VENC_CHN_H264, &ring);
+    RK_MPI_VENC_SetAntiRing(VENC_CHN_RECORD, &ring);
     VENC_ANTI_LINE_S line;
-    RK_MPI_VENC_GetAntiLine(VENC_CHN_H264, &line);
+    RK_MPI_VENC_GetAntiLine(VENC_CHN_RECORD, &line);
     line.u32AntiLine = 2;
-    RK_MPI_VENC_SetAntiLine(VENC_CHN_H264, &line);
+    RK_MPI_VENC_SetAntiLine(VENC_CHN_RECORD, &line);
     VENC_LAMBDA_S lambda;
-    RK_MPI_VENC_GetLambda(VENC_CHN_H264, &lambda);
+    RK_MPI_VENC_GetLambda(VENC_CHN_RECORD, &lambda);
     lambda.u32Lambda = 4;
-    RK_MPI_VENC_SetLambda(VENC_CHN_H264, &lambda);
+    RK_MPI_VENC_SetLambda(VENC_CHN_RECORD, &lambda);
 
     VENC_FILTER_S flt;
-    RK_MPI_VENC_GetFilter(VENC_CHN_H264, &flt);
+    RK_MPI_VENC_GetFilter(VENC_CHN_RECORD, &flt);
     flt.u32StrengthI = 0;
     flt.u32StrengthP = 0;
-    RK_MPI_VENC_SetFilter(VENC_CHN_H264, &flt);
+    RK_MPI_VENC_SetFilter(VENC_CHN_RECORD, &flt);
 
     VENC_RECV_PIC_PARAM_S recv = {.s32RecvPicNum = -1};
-    RK_MPI_VENC_StartRecvFrame(VENC_CHN_H264, &recv);
+    RK_MPI_VENC_StartRecvFrame(VENC_CHN_RECORD, &recv);
 
     return 0;
 }
 
 static void record_pipeline_deinit(void)
 {
-    RK_MPI_VENC_StopRecvFrame(VENC_CHN_H264);
-    RK_MPI_VENC_DestroyChn(VENC_CHN_H264);
-    RK_MPI_VI_DisableChn(VI_DEV_ID, VENC_CHN_H264);
+    RK_MPI_VENC_StopRecvFrame(VENC_CHN_RECORD);
+    RK_MPI_VENC_DestroyChn(VENC_CHN_RECORD);
+    RK_MPI_VI_DisableChn(VI_DEV_ID, VENC_CHN_RECORD);
 }
 
 /* ------------------------------------------------------------------ */
@@ -346,14 +346,14 @@ static int motion_pipeline_init(void)
 {
     /* VI_PHY_CHN_BYPATH_SAMPLING (Chn:4) requires VI_PHY_CHN_BYPATH (Chn:2)
      * to be started first — kernel returns "no start" otherwise.
-     * Bypass path runs at h264/2 resolution; 4x4 sampling produces /4 of that. */
+     * Bypass path runs at record/2 resolution; 4x4 sampling produces /4 of that. */
     VI_CHN_ATTR_S vi_bypass = {0};
     vi_bypass.stIspOpt.u32BufCount = 2;
     vi_bypass.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
-    vi_bypass.stIspOpt.stMaxSize.u32Width = g_cfg.h264.width / 2;
-    vi_bypass.stIspOpt.stMaxSize.u32Height = g_cfg.h264.height / 2;
-    vi_bypass.stSize.u32Width = g_cfg.h264.width / 2;
-    vi_bypass.stSize.u32Height = g_cfg.h264.height / 2;
+    vi_bypass.stIspOpt.stMaxSize.u32Width = g_cfg.record.width / 2;
+    vi_bypass.stIspOpt.stMaxSize.u32Height = g_cfg.record.height / 2;
+    vi_bypass.stSize.u32Width = g_cfg.record.width / 2;
+    vi_bypass.stSize.u32Height = g_cfg.record.height / 2;
     vi_bypass.enPixelFormat = RK_FMT_YUV420SP;
     vi_bypass.stFrameRate.s32SrcFrameRate = g_cfg.ivs.fps;
     vi_bypass.stFrameRate.s32DstFrameRate = g_cfg.ivs.fps;
@@ -389,8 +389,8 @@ static int motion_pipeline_init(void)
     IVS_CHN_ATTR_S ivs = {0};
     {
         ivs.enMode = IVS_MODE_MD;
-        ivs.u32PicWidth = g_cfg.h264.width;
-        ivs.u32PicHeight = g_cfg.h264.height;
+        ivs.u32PicWidth = g_cfg.record.width;
+        ivs.u32PicHeight = g_cfg.record.height;
         ivs.enPixelFormat = RK_FMT_YUV420SP;
         ivs.bMDEnable = RK_TRUE;
         ivs.s32MDInterval = g_cfg.ivs.md_interval;
@@ -450,8 +450,8 @@ static int live_pipeline_init(void)
         vi.enPixelFormat = RK_FMT_YUV420SP;
         vi.enCompressMode = COMPRESS_MODE_NONE;
         vi.u32Depth = 1;
-        vi.stFrameRate.s32SrcFrameRate = g_cfg.h264.fps;
-        vi.stFrameRate.s32DstFrameRate = g_cfg.h264.fps;
+        vi.stFrameRate.s32SrcFrameRate = g_cfg.record.fps;
+        vi.stFrameRate.s32DstFrameRate = g_cfg.record.fps;
     }
     if (RK_MPI_VI_SetChnAttr(VI_PIPE_ID, VI_PHY_CHN_SELF, &vi) != RK_SUCCESS ||
         RK_MPI_VI_EnableChn(VI_PIPE_ID, VI_PHY_CHN_SELF) != RK_SUCCESS)
@@ -475,7 +475,7 @@ static int live_pipeline_init(void)
         ve.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
         ve.stRcAttr.stH264Cbr.u32Gop = (uint32_t)g_cfg.live.gop;
         ve.stRcAttr.stH264Cbr.u32BitRate = g_cfg.live.bitrate_kbps;
-        ve.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)g_cfg.h264.fps;
+        ve.stRcAttr.stH264Cbr.u32SrcFrameRateNum = (uint32_t)g_cfg.record.fps;
         ve.stRcAttr.stH264Cbr.u32SrcFrameRateDen = 1;
         ve.stRcAttr.stH264Cbr.fr32DstFrameRateNum = (uint32_t)g_cfg.live.fps;
         ve.stRcAttr.stH264Cbr.fr32DstFrameRateDen = 1;
@@ -485,7 +485,7 @@ static int live_pipeline_init(void)
     VENC_CHN_PARAM_S param = {0};
     {
         param.stFrameRate.bEnable = RK_TRUE;
-        param.stFrameRate.s32SrcFrmRateNum = g_cfg.h264.fps;
+        param.stFrameRate.s32SrcFrmRateNum = g_cfg.record.fps;
         param.stFrameRate.s32SrcFrmRateDen = 1;
         param.stFrameRate.s32DstFrmRateNum = g_cfg.live.fps;
         param.stFrameRate.s32DstFrmRateDen = 1;
@@ -525,7 +525,7 @@ static void live_pipeline_deinit(void)
 /* Producer threads                                                   */
 /* ------------------------------------------------------------------ */
 
-static void *h264_thread(void *arg)
+static void *record_thread(void *arg)
 {
     app_ctx_t *ctx = arg;
     VENC_STREAM_S venc_frame = {0};
@@ -549,7 +549,7 @@ static void *h264_thread(void *arg)
 
     while (atomic_load(&s_producers_run))
     {
-        if (RK_MPI_VI_GetChnFrame(VI_PIPE_ID, VENC_CHN_H264, &vi_frame, 2000) != RK_SUCCESS)
+        if (RK_MPI_VI_GetChnFrame(VI_PIPE_ID, VENC_CHN_RECORD, &vi_frame, 2000) != RK_SUCCESS)
             continue;
 
         int64_t hw_pts = (int64_t)vi_frame.stVFrame.u64PTS;
@@ -575,7 +575,7 @@ static void *h264_thread(void *arg)
         {
             if (hw_pts < next_keep_hw)
             {
-                RK_MPI_VI_ReleaseChnFrame(VI_PIPE_ID, VENC_CHN_H264, &vi_frame);
+                RK_MPI_VI_ReleaseChnFrame(VI_PIPE_ID, VENC_CHN_RECORD, &vi_frame);
                 continue;   // drop — do not advance pts / last_kept_hw
             }
             next_keep_hw += keep_interval;
@@ -598,19 +598,19 @@ static void *h264_thread(void *arg)
 
         vi_frame.stVFrame.u64PTS = (uint64_t)pts;
 
-        RK_MPI_VENC_SendFrame(VENC_CHN_H264, &vi_frame, -1);
+        RK_MPI_VENC_SendFrame(VENC_CHN_RECORD, &vi_frame, -1);
 
-        if (RK_MPI_VENC_GetStream(VENC_CHN_H264, &venc_frame, 2000) == RK_SUCCESS)
+        if (RK_MPI_VENC_GetStream(VENC_CHN_RECORD, &venc_frame, 2000) == RK_SUCCESS)
         {
             bool is_key = (venc_frame.pstPack->DataType.enH264EType == H264E_NALU_IDRSLICE) ||
                           (venc_frame.pstPack->DataType.enH264EType == H264E_NALU_ISLICE);
             void *p = RK_MPI_MB_Handle2VirAddr(venc_frame.pstPack->pMbBlk);
             fq_push(ctx->vq, p, venc_frame.pstPack->u32Len, is_key,
                     (int64_t)venc_frame.pstPack->u64PTS);
-            RK_MPI_VENC_ReleaseStream(VENC_CHN_H264, &venc_frame);
+            RK_MPI_VENC_ReleaseStream(VENC_CHN_RECORD, &venc_frame);
         }
 
-        RK_MPI_VI_ReleaseChnFrame(VI_PIPE_ID, VENC_CHN_H264, &vi_frame);
+        RK_MPI_VI_ReleaseChnFrame(VI_PIPE_ID, VENC_CHN_RECORD, &vi_frame);
     }
 
     free(venc_frame.pstPack);
@@ -732,17 +732,17 @@ static int osd_rgn_create(RGN_HANDLE h, int venc_chn, int w, int height)
         y = UPALIGNTO16(m);
         break;
     case OSD_POS_TOP_RIGHT:
-        x = UPALIGNTO16((int)g_cfg.h264.width - w - m);
+        x = UPALIGNTO16((int)g_cfg.record.width - w - m);
         y = UPALIGNTO16(m);
         break;
     case OSD_POS_BOTTOM_LEFT:
         x = UPALIGNTO16(m);
-        y = UPALIGNTO16((int)g_cfg.h264.height - height - m);
+        y = UPALIGNTO16((int)g_cfg.record.height - height - m);
         break;
     case OSD_POS_BOTTOM_RIGHT:
     default:
-        x = UPALIGNTO16((int)g_cfg.h264.width - w - m);
-        y = UPALIGNTO16((int)g_cfg.h264.height - height - m);
+        x = UPALIGNTO16((int)g_cfg.record.width - w - m);
+        y = UPALIGNTO16((int)g_cfg.record.height - height - m);
         break;
     }
 
@@ -817,7 +817,7 @@ static void *osd_thread(void *arg)
         memset(buf, 0, bufsz);
         draw_argb8888_text(buf, s_osd_w, s_osd_h, wch);
 
-        osd_upload(OSD_RGN_H264, buf, s_osd_w, s_osd_h);
+        osd_upload(OSD_RGN_RECORD, buf, s_osd_w, s_osd_h);
         osd_upload(OSD_RGN_LIVE, buf, s_osd_w, s_osd_h);
     }
 
@@ -842,11 +842,11 @@ static int osd_init(void)
     s_osd_w = UPALIGNTO16(wstr_get_actual_advance_x(wch));
     s_osd_h = UPALIGNTO16(g_cfg.osd.font_size);
 
-    if (osd_rgn_create(OSD_RGN_H264, VENC_CHN_H264, s_osd_w, s_osd_h) != 0)
+    if (osd_rgn_create(OSD_RGN_RECORD, VENC_CHN_RECORD, s_osd_w, s_osd_h) != 0)
         return -1;
     if (osd_rgn_create(OSD_RGN_LIVE, VENC_CHN_LIVE, s_osd_w, s_osd_h) != 0)
     {
-        osd_rgn_destroy(OSD_RGN_H264, VENC_CHN_H264);
+        osd_rgn_destroy(OSD_RGN_RECORD, VENC_CHN_RECORD);
         return -1;
     }
 
@@ -857,7 +857,7 @@ static int osd_init(void)
     {
         osd_get_time_wch(wch, MAX_WCH_BYTE);
         draw_argb8888_text(buf, s_osd_w, s_osd_h, wch);
-        osd_upload(OSD_RGN_H264, buf, s_osd_w, s_osd_h);
+        osd_upload(OSD_RGN_RECORD, buf, s_osd_w, s_osd_h);
         osd_upload(OSD_RGN_LIVE, buf, s_osd_w, s_osd_h);
         free(buf);
     }
@@ -868,7 +868,7 @@ static int osd_init(void)
 
 static void osd_deinit(void)
 {
-    osd_rgn_destroy(OSD_RGN_H264, VENC_CHN_H264);
+    osd_rgn_destroy(OSD_RGN_RECORD, VENC_CHN_RECORD);
     osd_rgn_destroy(OSD_RGN_LIVE, VENC_CHN_LIVE);
     destroy_font();
     MS_LOG_INFO("OSD down\n");
@@ -894,8 +894,8 @@ int media_init(app_ctx_t *ctx)
 
     /* Encoder CBR SrcFrameRate is fixed at fps_high for the whole run: the rewritten
      * PTS always presents fps_high to the rate control regardless of motion state,
-     * so this is set once and never retuned (see h264_thread). */
-    venc_set_framerate(VENC_CHN_H264, g_cfg.ivs.fps_high < 1 ? 1 : g_cfg.ivs.fps_high);
+     * so this is set once and never retuned (see record_thread). */
+    venc_set_framerate(VENC_CHN_RECORD, g_cfg.ivs.fps_high < 1 ? 1 : g_cfg.ivs.fps_high);
 
     atomic_store(&s_producers_run, true);
 
@@ -909,9 +909,9 @@ int media_init(app_ctx_t *ctx)
             s_osd_started = true;
     }
 
-    if (pthread_create(&s_h264_thr, NULL, h264_thread, ctx) != 0)
+    if (pthread_create(&s_record_thr, NULL, record_thread, ctx) != 0)
         goto fail_threads;
-    s_h264_started = true;
+    s_record_started = true;
     if (pthread_create(&s_live_thr, NULL, live_thread, ctx) != 0)
         goto fail_threads;
     s_live_started = true;
@@ -924,13 +924,13 @@ int media_init(app_ctx_t *ctx)
 
 fail_threads:
     atomic_store(&s_producers_run, false);
-    if (s_h264_started)
-        pthread_join(s_h264_thr, NULL);
+    if (s_record_started)
+        pthread_join(s_record_thr, NULL);
     if (s_live_started)
         pthread_join(s_live_thr, NULL);
     if (s_ivs_started)
         pthread_join(s_ivs_thr, NULL);
-    s_h264_started = s_live_started = s_ivs_started = false;
+    s_record_started = s_live_started = s_ivs_started = false;
     motion_pipeline_deinit();
 fail_pipe1:
     live_pipeline_deinit();
@@ -954,7 +954,7 @@ void media_stop(app_ctx_t *ctx)
     atomic_store(&s_producers_run, false);
 
     /* Unblock any GetStream call still parked in VENC. */
-    RK_MPI_VENC_StopRecvFrame(VENC_CHN_H264);
+    RK_MPI_VENC_StopRecvFrame(VENC_CHN_RECORD);
     RK_MPI_VENC_StopRecvFrame(VENC_CHN_LIVE);
 
     if (s_osd_started)
@@ -962,10 +962,10 @@ void media_stop(app_ctx_t *ctx)
         pthread_join(s_osd_thr, NULL);
         s_osd_started = false;
     }
-    if (s_h264_started)
+    if (s_record_started)
     {
-        pthread_join(s_h264_thr, NULL);
-        s_h264_started = false;
+        pthread_join(s_record_thr, NULL);
+        s_record_started = false;
     }
     if (s_live_started)
     {

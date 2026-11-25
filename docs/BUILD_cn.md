@@ -331,12 +331,12 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 | 键 | 默认值 | 含义 |
 |---|---|---|
-| `h264.width`、`h264.height` | 1920、1080 | 录制分辨率 |
-| `h264.fps` | 30 | 录制流的传感器帧率 |
-| `h264.bitrate_kbps` | 4000 | |
-| `h264.gop` | 60 | 关键帧间隔，单位为帧 |
+| `record.width`、`record.height` | 1920、1080 | 录制分辨率 |
+| `record.fps` | 30 | 录制流的传感器帧率 |
+| `record.bitrate_kbps` | 4000 | |
+| `record.gop` | 60 | 关键帧间隔，单位为帧 |
 | `live.width`、`live.height` | 1920、1080 | 实时画面分辨率 |
-| `live.fps` | 15 | 设为 `h264.fps` 的一半时，得到的是传感器当前帧率的一半 |
+| `live.fps` | 15 | 设为 `record.fps` 的一半时，得到的是传感器当前帧率的一半 |
 | `live.bitrate_kbps` | 2000 | |
 | `live.gop` | 15 | 关键帧间隔，单位为帧；新观看者要等到一个关键帧 |
 | `ivs.width`、`ivs.height` | 640、360 | 运动检测所用的分辨率 |

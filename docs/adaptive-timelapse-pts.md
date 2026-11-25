@@ -1,11 +1,11 @@
 # Adaptive time-lapse PTS
 
-Last edited: 2026-10-24
+Last edited: 2026-11-25
 
 The H.264 recording is a single continuous stream whose frame rate depends on
 whether anything is moving. While the scene is still it is a time-lapse; while
 something moves it plays back in real time. The switch is made by rewriting the
-PTS of each frame before it reaches the encoder, in `h264_thread`
+PTS of each frame before it reaches the encoder, in `record_thread`
 (`src/media.c`). This note explains why it is built that way and where it falls
 short.
 
@@ -35,7 +35,7 @@ HLS muxer as an ordinary constant-rate stream.
 
 ## Timeline model
 
-The sensor runs at a fixed rate (`h264.fps`, 30). `h264_thread` keeps a subset
+The sensor runs at a fixed rate (`record.fps`, 30). `record_thread` keeps a subset
 of the frames and assigns each kept frame a synthesized PTS:
 
 | State | Frames kept | PTS advance per kept frame |
@@ -56,8 +56,8 @@ and 1 hour of motion plays back in about 23 h / 30 + 1 h ≈ 1 h 46 min.
 
 Nothing downstream knows the stream is variable. The encoder sees frames at
 `fps_high`, libhls cuts segments on keyframes and writes PTS-based durations,
-and a browser plays the playlist as normal HLS. The MJPEG live preview is a
-separate VI channel and is not affected; it is always real time.
+and a browser plays the playlist as normal HLS. The live view is a
+separate VI channel and encoder and is not affected; it is always real time.
 
 ## Why the hardware PTS, not a frame count
 
@@ -163,7 +163,7 @@ targets, not measured file sizes).
 ## Segments and the GOP
 
 With `hls_duration_s: 0`, libhls cuts a segment at every keyframe, so a segment
-is one GOP (`h264.gop: 60` frames). The open segment is buffered in RAM until it
+is one GOP (`record.gop: 60` frames). The open segment is buffered in RAM until it
 is cut, so a power loss costs at most one segment (`storage.c`, `hls_create`).
 
 Because the GOP is counted in frames, its real-time length depends on the mode.
@@ -192,7 +192,7 @@ viewer can read but software cannot. Seeking to "14:32" in a day's recording is
 therefore not possible as built.
 
 Related, smaller effects: the storage writer reads `current_fps` (set by the IVS
-thread) to classify each frame, while `h264_thread` reads `motion_state`
+thread) to classify each frame, while `record_thread` reads `motion_state`
 independently, so the two can disagree for a frame around a switch. And because
 motion segments follow the hardware clock, a sensor that under-runs makes frame
 index × `1 / fps_high` drift from stream time.

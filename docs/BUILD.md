@@ -470,12 +470,12 @@ the defaults are used.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `h264.width`, `h264.height` | 1920, 1080 | Recording resolution |
-| `h264.fps` | 30 | Sensor frame rate of the recording stream |
-| `h264.bitrate_kbps` | 4000 | |
-| `h264.gop` | 60 | Frames between keyframes |
+| `record.width`, `record.height` | 1920, 1080 | Recording resolution |
+| `record.fps` | 30 | Sensor frame rate of the recording stream |
+| `record.bitrate_kbps` | 4000 | |
+| `record.gop` | 60 | Frames between keyframes |
 | `live.width`, `live.height` | 1920, 1080 | Live view resolution |
-| `live.fps` | 15 | Half of `h264.fps` halves whatever rate the sensor is running at |
+| `live.fps` | 15 | Half of `record.fps` halves whatever rate the sensor is running at |
 | `live.bitrate_kbps` | 2000 | |
 | `live.gop` | 15 | Frames between keyframes; a new viewer waits for one |
 | `ivs.width`, `ivs.height` | 640, 360 | Resolution motion is detected at |
