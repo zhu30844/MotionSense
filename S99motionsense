@@ -124,9 +124,7 @@ case "$1" in
     start)
         rm -f "$SAFE_FLAG"
         if boot_ok; then
-            # Hand the camera over from the stock rkipc app: this kills rkipc and
-            # blocks until it has fully released the ISP, so we don't race it.
-            [ -x /oem/usr/bin/RkLunch-stop.sh ] && sh /oem/usr/bin/RkLunch-stop.sh
+            # RkLunch.sh loads the modules at boot; this is for when it has not.
             if [ ! -d /dev/mpi ]; then
                 cd /oem/usr/ko && sh insmod_ko.sh >/dev/null 2>&1
             fi

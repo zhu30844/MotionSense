@@ -100,4 +100,4 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - OTA
 
 ### Other
-- Trim the image further and remove rkipc completely
+- Trim the image further: kernel modules for hardware the board does not have
