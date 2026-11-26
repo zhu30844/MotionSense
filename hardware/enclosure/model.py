@@ -142,7 +142,7 @@ def base_shell():
     lay = LAYOUTS[LAYOUT]
     s = s.cut(box(lay["card"][0], iy1, top + 0.3, lay["card"][1], iy1 + WALL, top + 2.6))
     for x in lay["lights"]:
-        s = s.cut(cq.Workplane("XZ").circle(1.1).extrude(-WALL).translate((x, iy1, top + 1.5)))
+        s = s.cut(cq.Workplane("XZ").circle(1.6).extrude(-WALL).translate((x, iy1, top + 2.0)))  # bent 3 mm LED
     # Side D: grille for the temperature and humidity sensor, low and near side C.
     for i in range(5):
         s = s.cut(box(ix0 - WALL, 46 + i * 4.5, top + 1, ix0, 48 + i * 4.5, top + 9))

@@ -26,9 +26,9 @@ LCSC = {
     "68p": "C2171219", "1u": "C28323", "2u2": "C49217",
     "100k": "C149504", "10k": "C17414", "1k": "C17513", "4k7": "C17673", "330": "C17630", "22": "C17561",
     "47k": "C17713", "13k": "C17455", "75k": "C17819", "51k": "C17737", "7k5": "C17807",
-    "D4": "C2297", "D5": "C2293", "D6": "C84256",
+    "D4": "C181864", "D5": "C417350", "D6": "C99771",
     "J1": "C16214", "J2": "C474881", "J3": "C2905423", "J4": "C2905423", "J5": "C144395",
-    "J6": "C2337", "J7": "C2337", "J8": "C2337", "J9": "C2337", "J10": "C49260564",
+    "J6": "C2937625", "J7": "C2937625", "J8": "C2937625", "J9": "C2691448", "J10": "C114218",
     "BT1": "C964723", "SW1": "C5379895", "SW2": "C2837515", "SW3": "C2837515",
 }
 
@@ -120,7 +120,7 @@ def text(s, x, y, size=2.0):
 
 def instance(lib_id, ref, value, x, y, rot=0, mirror=False, fp="", refat=None, valat=None, show_value=True, pins=None):
     s = "\t(symbol (lib_id \"%s\") (at %s %s %s)%s (unit 1)\n" % (lib_id, rnd(x), rnd(y), rot, " (mirror y)" if mirror else "")
-    s += "\t\t(exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)\n"
+    s += "\t\t(exclude_from_sim no) (in_bom %s) (on_board yes) (dnp no)\n" % ("no" if ref[:2] in ("TP", "JP") else "yes")
     s += '\t\t(uuid "%s")\n' % uid("s", ref)
     rx, ry, rj = refat or (x, y - 2.54, None)
     vx, vy, vj = valat or (x, y + 2.54, None)
@@ -210,9 +210,11 @@ R0805 = "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
 C0805 = "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
 C1206 = "Capacitor_SMD:C_1206_3216Metric_Pad1.33x1.80mm_HandSolder"
 CPOL = "Capacitor_SMD:CP_Elec_6.3x7.7"
-LED0805 = "LED_SMD:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder"
+LED3 = "LED_THT:LED_D3.0mm_Horizontal_O1.27mm_Z2.0mm"  # 3 mm, legs bent to look through the front wall
 SMA = "Diode_SMD:D_SMA"
-IND = "Inductor_SMD:L_Changjiang_FNR6045S"
+IND = "baseboard:IND-SMD_L7.5-W6.6_GSM0650"
+# Footprints in baseboard.pretty were fetched by LCSC number with easyeda2kicad.
+SOCKET = "baseboard:HDR-TH_20P-P2.54-V-F-2"
 HDR = "Connector_PinHeader_2.54mm:PinHeader_1x%02d_P2.54mm_Vertical"
 
 
@@ -255,16 +257,16 @@ def buck(n, x, y, out, r_bottom, ref0):
 # ---- Power input -----------------------------------------------------------
 text("POWER INPUT  9-12.6 V battery or 12 V adapter, the higher one feeds", 20, 25)
 place("Connector:Barrel_Jack_Switch", "J1", "DC 5.5x2.1", 30.48, 43.18, {"1": "VJACK", "2": GND, "3": NC},
-      fp="Connector_BarrelJack:BarrelJack_Horizontal", refat=(30.48, 35.6, None), valat=(30.48, 50.8, None))
+      fp="baseboard:DC-IN-TH_DC-005-5.5-2.0", refat=(30.48, 35.6, None), valat=(30.48, 50.8, None))
 place("Connector:Screw_Terminal_01x02", "J2", "BATTERY 3S", 30.48, 66.04, {"1": "VBAT", "2": GND}, mirror=True,
-      fp="TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2-5.08_1x02_P5.08mm_Horizontal",
+      fp="baseboard:CONN-TH_P5.00_KF301-5.0-2P",
       refat=(30.48, 60.9, None), valat=(30.48, 73.7, None))
 horiz("Diode:SS34", "D1", "SS34", 68.58, 40.64, "VJACK", "VIN_OR", SMA, rot=180)
 horiz("Diode:SS34", "D7", "SS34", 68.58, 66.04, "VBAT", "VIN_OR", SMA, rot=180)
 horiz("Device:Polyfuse", "F1", "3A hold", 104.14, 45.72, "VIN_OR", "VIN", "Fuse:Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder")
 # Latching push button: out holds UVLO low and both regulators stop.
 place("Switch:SW_SPDT", "SW1", "POWER latching", 149.86, 45.72, {"1": GND, "2": "UVLO", "3": NC},
-      refat=(149.86, 38.1, None), valat=(149.86, 53.3, None))
+      fp="baseboard:SW-TH_6P-8.5-8.5-ZS", refat=(149.86, 38.1, None), valat=(149.86, 53.3, None))
 text("SW1 carries no load current; released = off", 130, 58, 1.27)
 place("Diode:SMAJ15A", "D2", "SMAJ15CA", 96.52, 68.58, {"1": "VIN", "2": GND}, rot=270, fp=SMA,
       refat=(98.8, 67.3, "left"), valat=(98.8, 69.9, "left"))
@@ -298,9 +300,9 @@ R("R30", "100k", 43.18, 142.24, "3V3_CORE", GND)
 C("C31", "2u2", 83.82, 137.16, "3V3_B")
 for i, (name, colour, net) in enumerate([("PWR", "green", "3V3_B"), ("NET", "blue", "LED_NET"), ("REC", "red", "LED_REC")]):
     x = 104.14 + i * 30.48
-    R("R%d" % (31 + i), "1k", x, 132.08, net, "LED_%s_A" % name)
+    R("R%d" % (31 + i), "330" if colour == "blue" else "1k", x, 132.08, net, "LED_%s_A" % name)  # blue drops about 2.8 V
     place("Device:LED", "D%d" % (4 + i), "%s %s" % (name, colour), x, 149.86, {"1": GND, "2": "LED_%s_A" % name}, rot=90,
-          fp=LED0805, refat=(x + 2.5, 148.6, "left"), valat=(x + 2.5, 151.2, "left"))
+          fp=LED3, refat=(x + 2.5, 148.6, "left"), valat=(x + 2.5, 151.2, "left"))
 
 # ---- Pro Max socket --------------------------------------------------------
 text("PRO MAX  (J4 pin n is header pin n + 20)", 172, 185)
@@ -308,13 +310,13 @@ place("Connector:Conn_01x20_Socket", "J3", "PINS 1-20", 193.04, 226.06, {
     "1": "UART2_TX", "2": "UART2_RX", "3": GND, "4": "PWM_TILT", "5": "PWM_PAN", "6": "BTN_STOP", "7": "BTN_NET",
     "8": GND, "9": "I2C3_SDA", "10": "I2C3_SCL", "11": "I2C1_SDA", "12": "LED_NET", "13": GND, "14": "LED_REC",
     "15": NC, "16": "RTC_INT", "17": "I2C1_SCL", "18": GND, "19": "UART3_TX", "20": "UART3_RX"},
-    fp="Connector_PinSocket_2.54mm:PinSocket_1x20_P2.54mm_Vertical", refat=(194.3, 198.1, None), valat=(194.3, 254, None))
+    fp=SOCKET, refat=(194.3, 198.1, None), valat=(194.3, 254, None))
 place("Connector:Conn_01x20_Socket", "J4", "PINS 21-40", 210.82, 226.06, {
     "1": "SDIO_D3", "2": "SDIO_D2", "3": GND, "4": "SDIO_D1", "5": "SDIO_D0", "6": "SDIO_CLK", "7": "SDIO_CMD",
     "8": GND, "9": "SD_CD", "10": NC,
     "11": NC, "12": "VIN_SENSE", "13": GND, "14": NC, "15": NC, "16": "3V3_CORE", "17": NC, "18": GND,
     "19": "VSYS", "20": NC}, mirror=True,
-    fp="Connector_PinSocket_2.54mm:PinSocket_1x20_P2.54mm_Vertical", refat=(209.5, 198.1, None), valat=(209.5, 254, None))
+    fp=SOCKET, refat=(209.5, 198.1, None), valat=(209.5, 254, None))
 
 # ---- I2C3: RTC, MAC address, temperature and humidity -----------------------
 text("I2C3  RTC 0x68, MAC 0x50, T/RH 0x44", 20, 185)
@@ -323,7 +325,7 @@ place("Timer_RTC:DS3231M", "U4", "DS3231SN", 58.42, 215.9,
            **{str(n): GND for n in range(5, 14)}),
       fp="Package_SO:SOIC-16W_7.5x10.3mm_P1.27mm", refat=(60.96, 229.9, "left"), valat=(60.96, 227.3, "left"))
 place("Device:Battery_Cell", "BT1", "CR1220", 93.98, 213.36, {"1": "VBAT_RTC", "2": GND},
-      fp="Battery:BatteryHolder_Keystone_3000_1x12mm", refat=(96.5, 210.8, "left"), valat=(96.5, 213.4, "left"))
+      fp="baseboard:BAT-SMD_BS-12-B3AA011", refat=(96.5, 210.8, "left"), valat=(96.5, 213.4, "left"))
 C("C40", "100n", 20.32, 213.36, "3V3_B")
 R("R40", "10k", 116.84, 205.74, "3V3_B", "RTC_INT")
 R("R41", "4k7", 137.16, 205.74, "3V3_B", "I2C3_SDA")
@@ -343,7 +345,7 @@ C("C42", "100n", 129.54, 259.08, "3V3_B")
 # ---- Pan-tilt head, servos, serial ports ------------------------------------
 text("HEAD OLED  I2C1, own bus", 245, 185)
 place("Connector:Conn_01x04_Pin", "J5", "HEAD OLED", 271.78, 200.66, {"1": GND, "2": "3V3_B", "3": "I2C1_SCL", "4": "I2C1_SDA"},
-      mirror=True, fp="Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical", refat=(274.3, 194.3, "left"), valat=(274.3, 209.6, "left"))
+      mirror=True, fp="baseboard:CONN-TH_B4B-XH-A-LF-SN", refat=(274.3, 194.3, "left"), valat=(274.3, 209.6, "left"))
 R("R50", "4k7", 294.64, 200.66, "3V3_B", "I2C1_SCL")
 R("R51", "4k7", 314.96, 200.66, "3V3_B", "I2C1_SDA")
 
@@ -364,7 +366,7 @@ text("BUTTONS", 335, 185)
 for i, (name, net) in enumerate([("NETWORK", "BTN_NET"), ("SAFE STOP", "BTN_STOP")]):
     y = 200.66 + i * 25.4
     place("Switch:SW_Push", "SW%d" % (2 + i), name, 350.52, y, {"1": net, "2": GND},
-          fp="Button_Switch_THT:SW_PUSH_6mm", refat=(350.52, y - 6.4, None), valat=(350.52, y + 3.8, None))
+          fp="baseboard:SW-TH_4P-L6.0-W6.0-P4.50-LS6.5", refat=(350.52, y - 6.4, None), valat=(350.52, y + 3.8, None))
     R("R%d" % (54 + i), "10k", 375.92, y - 2.54, "3V3_B", net)
     C("C%d" % (50 + i), "100n", 393.7, y + 7.62, net)
 
