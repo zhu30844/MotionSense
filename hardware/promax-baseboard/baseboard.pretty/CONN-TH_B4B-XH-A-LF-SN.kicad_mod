@@ -28,7 +28,7 @@
 	(fp_line (start -6.20 -3.40) (end -6.20 2.35) (layer F.CrtYd) (width 0.05))
 	(fp_line (start -6.20 2.35) (end 6.20 2.35) (layer F.CrtYd) (width 0.05))
 	(model "${KIPRJMOD}/baseboard.3dshapes/XH2.5-4A.wrl"
-		(offset (xyz 0.000 0.000 0.000))
+		(offset (xyz 0.000 0.900 0.000))
 		(scale (xyz 1 1 1))
 		(rotate (xyz 0 0 180))
 	)

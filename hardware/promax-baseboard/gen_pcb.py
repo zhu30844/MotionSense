@@ -92,10 +92,13 @@ PLACE.update({"R22": (51.3 + 9.7, 24.3 - 2.0, 270), "JP1": (51.3 + 10.5, 24.3 - 
 
 HOLES = [(4, 4), (4, 68), (72, 4), (72, 68)]
 
+# KiCad footprints whose own 3D model is not installed here get one fetched by LCSC number.
+MODELS = {"Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder": "F1812_L4.5-W3.2-H1.0.wrl"}
+
 # Silkscreen for whoever plugs things in: (text, x, y of its middle, height).
 CAPTIONS = [
     ("MotionSense Pro Max baseboard r0.1", 40, 36, 1.2),
-    ("12V", 19, 13.6, 1.0), ("BAT 3S", 38, 11.4, 1.0), ("+", 35.5, 9.6, 1.2), ("-", 40.5, 9.6, 1.2),
+    ("12V", 19, 13.6, 1.0), ("BAT / 12V", 38, 11.4, 1.0), ("+", 35.5, 9.6, 1.2), ("-", 40.5, 9.6, 1.2),
     ("POWER", 67, 17.2, 1.0), ("NET", 67, 25.3, 1.0), ("STOP", 67, 39.3, 1.0), ("6V", 63.9, 18.5, 0.8),
     # Each light's name is to its right, in the gap below its resistor.
     ("<PWR", 24, 66.3, 0.8), ("<NET", 32, 66.3, 0.8), ("<REC", 40, 66.3, 0.8),
@@ -189,6 +192,11 @@ def load(fp):
     if f is None:
         raise SystemExit("no footprint %s" % fp)
     f.SetFPID(pcbnew.LIB_ID(lib, name))
+    if name in MODELS:
+        model = pcbnew.FP_3DMODEL()
+        model.m_Filename = "${KIPRJMOD}/%s.3dshapes/%s" % (PROJECT, MODELS[name])
+        f.Models().clear()
+        f.Models().push_back(model)
     return f
 
 

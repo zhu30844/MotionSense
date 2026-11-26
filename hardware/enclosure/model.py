@@ -45,7 +45,7 @@ SOCKET_H = 11.0         # baseboard top to Pro Max underside, on 8.5 mm sockets
 RJ45_TOP = 13.4         # above the Pro Max top face
 JACK_X, JACK_W, JACK_H = 19.0, 9.4, 11.0        # barrel jack; its face is flush with the outer wall
 TERMINAL_X = 38.0
-SWITCH_TOP = 4.9        # tactile switch, top of its plunger above the board
+SWITCH_TOP = 5.0        # tactile switch (KH-6X6X5H-TJ), top of its plunger above the board
 LATCH_TOP, LATCH_STEM = 14.0, 4.0               # latching switch: stem top when out, stem width
 
 # ---- Base ------------------------------------------------------------------
@@ -361,8 +361,8 @@ def cap(x, y, r, power):
     """Button cap: rides in the roof's guide tube, rests on the switch, sits 1 mm below the roof."""
     stem = r - 0.3
     rest = BOARD + (LATCH_TOP if power else SWITCH_TOP)     # where the cap meets the switch
-    low = rest - (3.0 if power else 0.8)
-    stop = CEILING - TUBE - 0.5                             # top of the flange that keeps the cap in
+    low = rest - (3.0 if power else 1.0)                    # socket depth; the tactile plunger stands 1.5 proud
+    stop = CEILING - TUBE - 0.5                             # flange top; 0.5 of lift, less than the socket is deep
     c = cyl(0, 0, low, TOP - 1.0, stem)
     cone = cq.Workplane("XY").circle(r + 1.0).workplane(offset=stop - (stop - 1.3)).circle(stem).loft()
     c = c.union(cyl(0, 0, stop - 2.3, stop - 1.3, r + 1.0)).union(cone.translate((0, 0, stop - 1.3)))
