@@ -147,12 +147,10 @@ Decided with the above, because it says what may be put in these databases.
   gesture is a long press on a running board.
 - **The Ethernet address does not live in `/userdata`.** It is in Rockchip's
   vendor storage, the `vnvm` partition, which neither an update nor a factory
-  reset touches; see *Partitions* in [BUILD.md](BUILD.md#partitions). U-Boot
-  made it up at random on the first boot and stored it. Still to do: derive it
-  from the chip's serial number and write that to vendor storage in place of
-  a random one, so that it comes back the same even after the whole flash is
-  erased; an address that is not locally administered, which is one a factory
-  wrote, is left alone.
+  reset touches; see *Partitions* in [BUILD.md](BUILD.md#partitions). It
+  is worked out from the chip's serial number, so it comes back the same even
+  after the whole flash is erased; an address that is not locally
+  administered, which is one a factory wrote, is left alone.
 
 ## Not in this design
 

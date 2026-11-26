@@ -735,8 +735,57 @@ still there after flashing the same image again. Erasing the whole flash with
 the flashing tool would clear it. The build prints "Not found image file" for
 it in red, which is the packer skipping it and not a failure.
 
-U-Boot reads the Ethernet address from there. Finding none, it makes up a
-random one and stores it, so the address is random once and then stays.
+#### The Ethernet address
+
+It is kept in `vnvm`, as item 3: twelve bytes, the address of `eth0` and then
+one for a second port. Three things touch it, in this order at every boot:
+
+1. **U-Boot** reads it and hands the first address to the kernel. Finding
+   none, it makes up a random one and stores it.
+2. **The kernel** uses what U-Boot handed it.
+3. **`RkLunch.sh`** works out what the address should be and, if vendor
+   storage holds a different one that it may replace, writes the worked-out
+   one there and sets it on `eth0` at once.
+
+The worked-out address is the first six bytes of the SHA-256 of
+`motionsense eth0 <serial>`, where the serial is the chip's, from
+`/proc/cpuinfo`. The first byte has its lowest bit cleared and the next one
+set: a unicast, locally administered address, which is the form for an
+address nobody bought. It is the same at every boot and after the whole flash
+is erased. Only the first boot of a blank board starts with another address,
+the random one U-Boot made up before `RkLunch.sh` had run.
+
+What `RkLunch.sh` may replace:
+
+| What vendor storage holds | What happens |
+|---|---|
+| Nothing | U-Boot stores a random address, which is then replaced |
+| An address with the locally administered bit, second hex digit 2, 3, 6, 7, a, b, e or f | Replaced by the worked-out one |
+| An address without it | Left alone: it is taken for one a factory wrote |
+| Item 200 holding `01` | Left alone, whatever the address |
+
+The bit alone cannot tell a random address from one somebody chose, and an
+address chosen by hand ought to have it. Item 200 is the mark that says the
+addresses were chosen. Rockchip's own items stop at 17, so 200 is ours. It
+sits beside the addresses, and so goes wherever they go.
+
+`ms-vendor` reads and writes vendor storage from a shell. To give a board an
+address of your own, write both addresses and the mark, then reboot:
+
+```sh
+ms-vendor set 3 0a00000000010e0000000001    # eth0, then the second port
+ms-vendor set 200 01
+```
+
+`ms-vendor set 200 00` gives the board back its worked-out address at the
+next boot. `ms-vendor get 3` prints what is stored.
+
+Tried on the Pro Max, serial `b6e432ffe46093d3`, worked-out address
+`86:e2:85:8d:2e:d2`: it is on `eth0` from the first boot and comes from
+U-Boot from the second; `00:11:22:33:44:55` written by hand was still there
+after a reboot; `0a:00:00:00:00:01` written by hand was replaced without the
+mark, stayed through two reboots with it, and was replaced once the mark was
+cleared. Not tried with a cable, so not seen from a router.
 
 `userdata` is sized so that the largest possible package still fits: with
 `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
