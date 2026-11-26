@@ -1,6 +1,6 @@
 # Building and installing MotionSense
 
-Last edited: 2026-11-25
+Last edited: 2026-11-26
 
 MotionSense targets the Luckfox Pico Pro Max (Rockchip RV1106, SPI NAND).
 It is built as an application inside the Luckfox SDK, and lives at
@@ -674,7 +674,7 @@ shift if board configs are added or removed.
 ### Partitions
 
 ```
-256K(env) 256K(idblock) 512K(uboot) 512K(misc) 8M(recovery) 6M(boot) 48M(rootfs) 64M(oem) 130560K(userdata)
+256K(env) 256K(idblock) 512K(uboot) 512K(misc) 8M(recovery) 6M(boot) 48M(rootfs) 65024K(oem) 512K(vnvm) 130560K(userdata)
 ```
 
 255MB of the 256MB SPI NAND. Measured on the board:
@@ -684,7 +684,7 @@ shift if board configs are added or removed.
 | recovery | 8 MB | 8 MB | 4.02 MB |
 | boot | 6 MB | 6 MB | 3.55 MB |
 | rootfs | 48 MB | 36.3 MB | 18.9 MB |
-| oem | 64 MB | 50.5 MB | 13.3 MB |
+| oem | 63.5 MB | 50.1 MB | 15.3 MB |
 | userdata | 127.5 MB | 107.4 MB | 0.03 MB |
 
 A UBI partition loses 12 to 20 MB to the bad-block reserve and the file
@@ -703,12 +703,27 @@ below. Changing the table means a reflash, and 2.0 already asks for one.
 | boot | 6 MB rather than 4: display drivers will grow the kernel |
 | rootfs | twice what is used; only buildroot packages land here |
 | oem | the app, and room for a display process, fonts and models |
+| vnvm | Rockchip's vendor storage: what belongs to this one board, such as its Ethernet address |
 | userdata | the rest: holds the update package |
 
-The order matters. `misc`, `recovery` and `userdata` can never move: U-Boot
-would not find the first two, and the package is in the third. `boot`,
-`rootfs` and `oem` sit between them, so a later update could write a new
-table and resize those three against each other. Nothing does that yet.
+The order matters. `misc`, `recovery`, `vnvm` and `userdata` can never move:
+U-Boot would not find the first two, the third holds what cannot be made
+again, and the package is in the fourth. `boot`, `rootfs` and `oem` sit
+between them, so a later update could write a new table and resize those
+three against each other. Nothing does that yet.
+
+`vnvm` is the name U-Boot and the kernel look for; another name is not found.
+It is four erase blocks, twice what the format needs, against bad blocks. No
+image is built for it, so neither an update package nor a whole reflash
+writes to it: tried, the address U-Boot stored there on the first boot was
+still there after flashing the same image again. Erasing the whole flash with
+the flashing tool would clear it. The build prints "Not found image file" for
+it in red, which is the packer skipping it and not a failure.
+
+U-Boot reads the Ethernet address from there. Finding none, it makes up a
+random one and stores it, so the address is random once and then stays. The
+vendor's `RkLunch.sh` still keeps a copy in `/userdata/ethaddr.txt`, which no
+longer decides anything.
 
 `userdata` is sized so that the largest possible package still fits: with
 `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
