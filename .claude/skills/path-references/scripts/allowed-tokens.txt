@@ -4,4 +4,5 @@
 
 hls.js                                          # browser library name (agent/internal/server/server.go comment)
 config.yaml                                     # the 1.x configuration file, replaced by config.json (docs/ROADMAP.md)
+ethaddr.txt                                     # a file on the board, in /userdata (docs/events.md)
 sysdrv/source/buildroot/buildroot-2023.02.6/configs  # extracted by the SDK build, never tracked (docs/BUILD.md)

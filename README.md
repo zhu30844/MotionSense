@@ -2,7 +2,13 @@
 
 English | [简体中文](README_cn.md)
 
-Last edited: 2026-11-25
+Last edited: 2026-11-26
+
+> **Status.** To use MotionSense, take a
+> [v1 release](https://github.com/zhu30844/MotionSense/releases) or the
+> [`1.x` branch](https://github.com/zhu30844/MotionSense/tree/1.x). `main` is
+> being reworked towards 2.0, and nothing on it is promised to work until 2.0
+> is released.
 
 Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
 RV1106; support for the Pico Ultra is in progress). Records H.264 to HLS on
