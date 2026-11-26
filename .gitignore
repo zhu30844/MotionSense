@@ -49,6 +49,9 @@ Thumbs.db
 # --- hardware/ ---
 # STEP and STL written by hardware/enclosure/model.py.
 /hardware/enclosure/out/
+/hardware/**/__pycache__/
+# Gerber, parts and placement files written by hardware/promax-baseboard/gen_fab.py.
+/hardware/promax-baseboard/fab/
 # KiCad per-user state and backups.
 *.kicad_prl
 *-backups/

@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""Writes baseboard.kicad_pcb: outline, every part in its place, nets, no tracks yet.
+"""Writes baseboard.kicad_pcb: outline, every part in its place, nets, and the tracks from route.py.
+
+With --no-tracks the board is left unrouted.
 
 Needs KiCad's pcbnew module and kicad-cli. Positions are in the enclosure model's axes
 (hardware/enclosure/model.py): x from side D to side B, y from side A (back) to side C (front),
 origin at the board's corner of sides D and A. On screen the front is at the top.
 Rotations are counter-clockwise as seen from above.
 """
+import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 
 import pcbnew
+
+import route
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = "baseboard"
@@ -33,7 +39,7 @@ def pin_y(n):
 # ref: (x, y, rotation, anchor). The anchor is the middle of the pads unless it says "origin".
 PLACE = {
     # Pro Max sockets.
-    "J3": (ROW_1, (PIN_Y0 + PIN_Y1) / 2, 90), "J4": (ROW_21, (PIN_Y0 + PIN_Y1) / 2, 270),
+    "J3": (ROW_1, (PIN_Y0 + PIN_Y1) / 2, 270), "J4": (ROW_21, (PIN_Y0 + PIN_Y1) / 2, 90),
     # Side A: barrel jack (axis x = 19, face 3.5 mm past the edge, flush with the outer wall) and battery terminal.
     "J1": (21.3, 7.1, 90, "origin"), "J2": (38, 4.2, 0),
     "D1": (21.5, 18, 180), "D7": (38, 15, 0), "F1": (29.2, 17.5, 90), "D2": (29.1, 8, 90), "C1": (38.5, 22.5, 0),
@@ -52,8 +58,10 @@ PLACE = {
     "J6": (35.5, 58.5, 90), "J7": (35.5, 62.6, 90), "R52": (43, 58.5, 180), "R53": (43, 62.6, 180),
     "C26": (49.5, 48.5, 90),
     "J10": (58.5, 63, 180, "origin"), "C60": (47.9, 58, 0), "C61": (47.9, 61, 0),
-    "R66": (55.5, 51.9, 90), "R67": (57.6, 51.9, 90), "R68": (59.7, 51.9, 90), "R69": (61.8, 51.9, 90),
-    "R70": (63.9, 51.9, 90), "R71": (66, 51.9, 90),
+    # Pull-ups in the order of the socket's pins: D2, D3, CMD, D0, D1, then detect.
+    # They stand 2 mm clear of the socket's pins, which leaves room for the supply pin's via.
+    "R69": (55.5, 50.9, 90), "R70": (57.6, 50.9, 90), "R66": (59.7, 50.9, 90), "R67": (61.8, 50.9, 90),
+    "R68": (63.9, 50.9, 90), "R71": (66, 50.9, 90),
     # Between the button column and the Pro Max: serial headers and I2C test points.
     "J9": (74.3, 27, 0), "J8": (74.3, 58, 0), "TP1": (74.2, 46.5, 0), "TP2": (74.2, 50.3, 0),
     # Under the Pro Max, each next to its header pin.
@@ -77,11 +85,33 @@ def buck(n, x, y, first):
         PLACE[ref] = (x + dx, y - dy, rot)
 
 
-buck(1, 51.3, 10.8, 10)
-buck(2, 51.3, 24.3, 20)
+BUCKS = [(51.3, 10.8), (51.3, 24.3)]
+buck(1, *BUCKS[0], 10)
+buck(2, *BUCKS[1], 20)
 PLACE.update({"R22": (51.3 + 9.7, 24.3 - 2.0, 270), "JP1": (51.3 + 10.5, 24.3 - 5.8, 270)})
 
 HOLES = [(4, 4), (4, 68), (72, 4), (72, 68)]
+
+# Silkscreen for whoever plugs things in: (text, x, y of its middle, height).
+CAPTIONS = [
+    ("MotionSense Pro Max baseboard r0.1", 40, 36, 1.2),
+    ("12V", 19, 13.6, 1.0), ("BAT 3S", 38, 11.4, 1.0), ("+", 35.5, 9.6, 1.2), ("-", 40.5, 9.6, 1.2),
+    ("POWER", 67, 17.2, 1.0), ("NET", 67, 25.3, 1.0), ("STOP", 67, 39.3, 1.0), ("6V", 63.9, 18.5, 0.8),
+    # Each light's name is to its right, in the gap below its resistor.
+    ("<PWR", 24, 66.3, 0.8), ("<NET", 32, 66.3, 0.8), ("<REC", 40, 66.3, 0.8),
+    ("PAN", 30, 58.5, 0.8), ("TILT", 29.8, 62.6, 0.8), ("G", 33, 56.4, 0.8), ("+", 35.5, 56.4, 0.8), ("S", 38, 56.4, 0.8),
+    ("G", 25.8, 57.3, 0.8), ("3V3", 23.2, 57.3, 0.8), ("SCL", 20.8, 57.3, 0.8), ("SDA", 18.2, 57.3, 0.8),
+    ("UART2", 74.3, 53.4, 0.8), ("G", 76.5, 60.5, 0.8), ("TX", 76.5, 58.0, 0.8), ("RX", 76.5, 55.5, 0.8),
+    ("UART3", 74.3, 21.0, 0.8), ("G", 76.5, 30.8, 0.8), ("3V", 76.5, 28.3, 0.8), ("TX", 76.5, 25.7, 0.8),
+    ("RX", 76.5, 23.2, 0.8),
+    ("SDA", 74.2, 44.9, 0.8), ("SCL", 74.2, 52.0, 0.8),
+    ("USB-C", 92, 70.8, 0.8), ("ETH", 87.5, 20.6, 0.8), ("1", 76.6, 70.64, 0.8), ("40", 98.5, 70.64, 0.8),
+]
+
+# Limits for the rule check, written to the project file; chosen on the safe side of JLCPCB's four-layer process.
+RULES = {"min_clearance": 0.15, "min_track_width": 0.15, "min_connection": 0.2, "min_via_diameter": 0.5,
+         "min_via_annular_width": 0.13, "min_through_hole_diameter": 0.3, "min_hole_to_hole": 0.5,
+         "min_hole_clearance": 0.25, "min_copper_edge_clearance": 0.3}
 
 # What the enclosure puts over the board, drawn on Dwgs.User: (label, x0, y0, x1, y1).
 OVERHEAD = [
@@ -99,6 +129,10 @@ def mm(v):
 
 def pt(x, y):
     return pcbnew.VECTOR2I(mm(OX + x), mm(OY + PCB_Y - y))
+
+
+def from_board(x, y):
+    return pcbnew.ToMM(x) - OX, OY + PCB_Y - pcbnew.ToMM(y)
 
 
 def tokens(text):
@@ -190,13 +224,74 @@ def label(board, s, x, y, layer=pcbnew.Dwgs_User, size=1.0):
     board.Add(t)
 
 
-def main():
-    comps, nets = netlist()
-    missing = sorted(set(comps) - set(PLACE))
-    if missing or set(PLACE) - set(comps):
-        raise SystemExit("not placed: %s; not in the schematic: %s" % (missing, sorted(set(PLACE) - set(comps))))
+def box(item, grow=0.0):
+    b = item.GetBoundingBox()
+    g = mm(grow)
+    return b.GetLeft() - g, b.GetTop() - g, b.GetRight() + g, b.GetBottom() + g
+
+
+def hits(a, b):
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def references(board):
+    """Puts each reference beside its part where nothing is in the way, and hides it where no place is free."""
+    size, gap = 0.8, 0.25
+    taken, pads, bodies = [], [], {}
+    for f in board.GetFootprints():
+        parts = [box(p, 0.1) for p in f.Pads()]
+        pads += parts
+        parts += [box(g, 0.1) for g in f.GraphicalItems() if g.GetLayer() == pcbnew.F_SilkS]
+        taken += parts
+        bodies[f.GetReference()] = [min(p[0] for p in parts), min(p[1] for p in parts),
+                                    max(p[2] for p in parts), max(p[3] for p in parts)]
+    inside = (pt(0.4, PCB_Y - 0.4), pt(PCB_X - 0.4, 0.4))
+    for s, x, y, height in CAPTIONS:                       # these stay where they are put; references go round them
+        t = pcbnew.PCB_TEXT(board)
+        t.SetText(s)
+        t.SetLayer(pcbnew.F_SilkS)
+        t.SetTextSize(pcbnew.VECTOR2I(mm(height), mm(height)))
+        t.SetTextThickness(mm(0.15))
+        t.SetPosition(pt(x, y))
+        board.Add(t)
+        b = box(t, -0.25)                                # the box of a text is generous
+        if any(hits(b, k) for k in pads):
+            print("caption over a pad or another caption: %s at %s, %s" % (s, x, y))
+        pads.append(b)
+        taken.append(box(t, 0.1))
+    hidden = []
+    for f in sorted(board.GetFootprints(), key=lambda f: f.GetReference()):
+        ref = f.Reference()
+        ref.SetTextSize(pcbnew.VECTOR2I(mm(size), mm(size)))
+        ref.SetTextThickness(mm(0.15))
+        ref.SetTextAngleDegrees(0)
+        ref.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
+        ref.SetVertJustify(pcbnew.GR_TEXT_V_ALIGN_CENTER)
+        x0, y0, x1, y1 = bodies[f.GetReference()]
+        ref.SetPosition(pcbnew.VECTOR2I(0, 0))
+        b = box(ref)
+        w, h = (b[2] - b[0]) / 2 + mm(gap), (b[3] - b[1]) / 2 + mm(gap)
+        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+        spots = [(cx, y0 - h), (cx, y1 + h), (x1 + w, cy), (x0 - w, cy), (x0 + w, y0 - h), (x1 - w, y0 - h),
+                 (x0 + w, y1 + h), (x1 - w, y1 + h), (x1 + w, y0 + h), (x1 + w, y1 - h), (x0 - w, y0 + h), (x0 - w, y1 - h)]
+        for x, y in [] if f.GetReference().startswith("H") else spots:
+            ref.SetPosition(pcbnew.VECTOR2I(int(x), int(y)))
+            b = box(ref, 0.1)
+            if b[0] > inside[0].x and b[2] < inside[1].x and b[1] > inside[0].y and b[3] < inside[1].y \
+                    and not any(hits(b, t) for t in taken):
+                taken.append(b)
+                break
+        else:
+            ref.SetVisible(False)
+            hidden.append(f.GetReference())
+    print("references not shown: " + " ".join(hidden))
+
+
+def build(comps, nets, first):
+    """The board, and the nets the search could not finish when those in first went first."""
     board = pcbnew.CreateEmptyBoard()
     board.SetCopperLayerCount(4)
+    board.GetDesignSettings().m_CopperEdgeClearance = mm(RULES["min_copper_edge_clearance"])   # the planes fill by it
     rect(board, 0, 0, PCB_X, PCB_Y, pcbnew.Edge_Cuts)
     netinfo = {}
     for name in sorted(set(nets.values())):
@@ -228,7 +323,32 @@ def main():
     label(board, "GRILLE", -2.4, SENSOR_GRILLE[1] + 1.5)
     for side, x, y in [("A back", 44, -4), ("C front", 44, 75), ("D", -6, 36), ("B", 102, 36)]:
         label(board, side, x, y, size=1.5)
+    references(board)
+    if "--no-tracks" in sys.argv:
+        return board, []
+    return board, route.route(board, (PCB_X, PCB_Y), pt, from_board, BUCKS, first)
+
+
+def main():
+    comps, nets = netlist()
+    missing = sorted(set(comps) - set(PLACE))
+    if missing or set(PLACE) - set(comps):
+        raise SystemExit("not placed: %s; not in the schematic: %s" % (missing, sorted(set(PLACE) - set(comps))))
+    first = []
+    for _ in range(5):
+        board, failed = build(comps, nets, first)
+        if not failed:
+            break
+        if set(failed) <= set(first):
+            break                              # going first did not help
+        first = failed + [n for n in first if n not in failed]
+        print("again, with these first: %s" % first)
     pcbnew.SaveBoard(os.path.join(HERE, PROJECT + ".kicad_pcb"), board)
+    path = os.path.join(HERE, PROJECT + ".kicad_pro")     # saving the board wrote KiCad's defaults there
+    pro = json.load(open(path))
+    pro["board"]["design_settings"]["rules"].update(RULES)
+    pro["net_settings"]["classes"][0].update({"clearance": route.CLEAR, "track_width": 2 * route.HW})
+    json.dump(pro, open(path, "w"), indent=2)
     table = '(fp_lib_table\n\t(version 7)\n\t(lib (name "%s")(type "KiCad")(uri "${KIPRJMOD}/%s.pretty")(options "")(descr ""))\n)\n'
     open(os.path.join(HERE, "fp-lib-table"), "w").write(table % (PROJECT, PROJECT))
 
