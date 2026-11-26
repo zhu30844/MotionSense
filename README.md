@@ -132,8 +132,7 @@ Configuration is one `config.json` on the SD card. The daemon writes it with
 the defaults on first boot and never overwrites it after that, so a blank card
 still records. [docs/BUILD.md](docs/BUILD.md#configuration) lists the keys.
 
-`S99motionsense` hands the camera over from the stock `rkipc` app and starts
-both. Each waits for the card to mount by itself, and is started again if it
+`S99motionsense` starts both; the vendor's `rkipc` app is not in the image. Each waits for the card to mount by itself, and is started again if it
 exits; a recorder that stops storing frames resets the board through the
 hardware watchdog. [docs/BUILD.md](docs/BUILD.md#supervision) has the
 details. The script ships in the

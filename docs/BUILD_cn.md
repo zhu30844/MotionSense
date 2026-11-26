@@ -371,7 +371,11 @@ AWST-8
 
 时钟本身在启动时来自 RTC，之后来自 ntpd。RTC 电池耗尽时冷启动，第一个分段会以 ntpd 校正之前时钟里的任意日期记录。
 
-`S99motionsense` 从原厂 `rkipc` 应用接管摄像头，然后启动两个程序。两个程序各自等待存储，等多久都行：之后守护进程创建 `MotionSense/`，在没有配置时写出 `config.json`，并把 vendor 库的 stderr 接到 `motionsense.log`。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
+SDK 的 `S21appinit` 在开机时执行 `/oem/usr/bin/RkLunch.sh`，这个名字由各个应用用自己的启动逻辑来填。我们的这份通过调用厂商的 `insmod_ko.sh` 加载摄像头的内核模块，别的什么都不做。原先占着这个位置的是厂商的 `rkipc` 应用的脚本，它现在不再被构建：`project/app` 下的每个应用只在板级配置的 `RK_APP_TYPE` 里有它认识的名字时才构建，我们的名字是 `MOTIONSENSE`。这个变量留空会让所有应用都不构建，包括我们的。
+
+有两个目录会留着以前的构建放进去的东西，所以应用不再安装的文件仍然会被打包：各应用安装到的 `project/app/out`，以及拼装 oem 分区的 `output/out/oem`。改了 `RK_APP_TYPE`，或者从安装清单里去掉了某个文件之后，构建前要执行 `./build.sh clean app` 并删掉 `output/out/oem`。漏掉后者，曾让一个不含 rkipc 的镜像里仍然带着 rkipc 的 `RkLunch-stop.sh`、一个字体和两个库。CI 是从空目录构建的，不受影响。
+
+`S99motionsense` 启动两个程序。两个程序各自等待存储，等多久都行：之后守护进程创建 `MotionSense/`，在没有配置时写出 `config.json`，并把 vendor 库的 stderr 接到 `motionsense.log`。SD 卡由 rootfs 中附带的 udev 规则（`sysdrv/tools/board/eudev/rules/61-sd-cards-auto-mount.rules`）自动挂载，支持 vfat/exfat/ntfs/ext2/3/4。
 
 两个进程通过 `CFG_SOCKET_PATH`（`/tmp/motionsense-stream.sock`）通信，该 socket 由 C 守护进程创建，agent 连接它获取实时画面的 H264 帧。它只在 `config.h` 中定义一次；两端都读取这个名称。录制不经过它，因此 socket 故障只会损失实时画面，不影响其他功能。
 
@@ -507,7 +511,7 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 
 `vnvm` 是 U-Boot 和内核要找的名字，换个名字就找不到。它有四个擦除块，是格式所需的两倍，用来应对坏块。构建不为它生成镜像，所以升级包和整机重刷都不会写它：实测过，U-Boot 第一次启动时存进去的地址，在用同一个镜像再刷一遍之后仍然在。用烧录工具擦除整片 flash 则会把它清掉。构建时会为它打印一行红色的 "Not found image file"，那是打包脚本跳过了它，不是失败。
 
-U-Boot 从这里读以太网地址。读不到时它随机生成一个并存进去，所以地址只随机一次，之后不变。厂商的 `RkLunch.sh` 仍然在 `/userdata/ethaddr.txt` 里留着一份副本，它已经不起任何决定作用。
+U-Boot 从这里读以太网地址。读不到时它随机生成一个并存进去，所以地址只随机一次，之后不变。
 
 `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
 

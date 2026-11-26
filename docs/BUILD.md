@@ -523,8 +523,23 @@ The clock itself comes from the RTC at boot and from ntpd afterwards. A cold
 start with a flat RTC battery records its first segment under whatever date
 the clock held before ntpd corrects it.
 
-`S99motionsense` hands the camera over from the stock `rkipc` app and starts
-the two programs. Each waits for storage itself, for as long as it takes: the
+The SDK's `S21appinit` runs `/oem/usr/bin/RkLunch.sh` at boot, a name each
+app fills with its own start-up. Ours loads the camera's kernel modules by
+calling the vendor's `insmod_ko.sh`, and nothing else. The vendor's `rkipc`
+app, whose script used to be there, is not built: every app in `project/app`
+builds only when `RK_APP_TYPE` in the board config holds a name it knows, and
+ours is `MOTIONSENSE`. Left empty, that variable stops all apps being built,
+this one included.
+
+Two directories keep what earlier builds put in them, so a file an app no
+longer installs is still packaged: `project/app/out`, where the apps install,
+and `output/out/oem`, where the oem partition is put together. After changing
+`RK_APP_TYPE`, or dropping a file from what is installed, run
+`./build.sh clean app` and delete `output/out/oem` before building. Leaving
+out the second kept rkipc's `RkLunch-stop.sh`, a font and two libraries in an
+image built without rkipc. CI builds from an empty tree and is not affected.
+
+`S99motionsense` starts the two programs. Each waits for storage itself, for as long as it takes: the
 daemon then creates `MotionSense/`, writes `config.json` if there is none,
 and sends the vendor libraries' stderr to `motionsense.log`. The SD
 card is auto-mounted by a udev rule shipped in the rootfs
@@ -721,9 +736,7 @@ the flashing tool would clear it. The build prints "Not found image file" for
 it in red, which is the packer skipping it and not a failure.
 
 U-Boot reads the Ethernet address from there. Finding none, it makes up a
-random one and stores it, so the address is random once and then stays. The
-vendor's `RkLunch.sh` still keeps a copy in `/userdata/ethaddr.txt`, which no
-longer decides anything.
+random one and stores it, so the address is random once and then stays.
 
 `userdata` is sized so that the largest possible package still fits: with
 `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.

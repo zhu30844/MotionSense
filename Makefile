@@ -39,7 +39,13 @@ MS_GO_ENV := GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0
 # Where the SDK's freshly built Rockchip media libraries and headers live.
 MS_MEDIA_DIR := $(RK_APP_PATH_LIB_INCLUDE)
 
+# Built only for a board config that names it, as the vendor's apps are.
+ifneq (, $(filter MOTIONSENSE, $(RK_APP_TYPE)))
 all: c-daemon go-agent
+else
+all:
+	@echo "build MotionSense skipped: RK_APP_TYPE has no MOTIONSENSE"
+endif
 
 # Explicit ordering: Makefile.param sets MAKEFLAGS += -j, so without this the
 # two would race and the strip below could catch a half-written agent binary.
@@ -61,6 +67,7 @@ c-daemon:
 	rm -rf $(RK_APP_OUTPUT)/share/MotionSense
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(MS_STAGE_DIR)/MotionSense)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/update/ms-update)
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/RkLunch.sh)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/share/MotionSense/fonts, $(MS_STAGE_DIR)/fonts)
 	# root/ goes into the rootfs, not the oem partition (__PACKAGE_ROOTFS).
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S99motionsense)
