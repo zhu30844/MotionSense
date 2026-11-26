@@ -145,14 +145,14 @@ Decided with the above, because it says what may be put in these databases.
   on `/dev/input/event0`, pressed and released, while the system runs. Held
   while power is applied it puts the chip in Maskrom mode instead, so the
   gesture is a long press on a running board.
-- **The Ethernet address must not live in `/userdata`.** It does today, in
-  `ethaddr.txt`. The kernel finds no stored address on this board and makes up
-  a random one at every boot; the vendor's `RkLunch.sh` saves the first one it
-  sees to that file and puts it back at each later boot. Erase the file and
-  the board comes back with a new address, and whatever the router had tied to
-  the old one is lost. Before a factory reset exists, the address is to be
-  derived from the chip's serial number, which is the same at every boot and
-  needs storing nowhere.
+- **The Ethernet address does not live in `/userdata`.** It is in Rockchip's
+  vendor storage, the `vnvm` partition, which neither an update nor a factory
+  reset touches; see *Partitions* in [BUILD.md](BUILD.md#partitions). U-Boot
+  made it up at random on the first boot and stored it. Still to do: derive it
+  from the chip's serial number and write that to vendor storage in place of
+  a random one, so that it comes back the same even after the whole flash is
+  erased; an address that is not locally administered, which is one a factory
+  wrote, is left alone.
 
 ## Not in this design
 

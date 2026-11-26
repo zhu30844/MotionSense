@@ -2,7 +2,7 @@
 
 [English](BUILD.md) | 简体中文
 
-最后编辑：2026-11-25
+最后编辑：2026-11-26
 
 MotionSense 的目标硬件是 Luckfox Pico Pro Max（Rockchip RV1106，SPI NAND）。它作为 Luckfox SDK 内的一个应用进行构建，位于该 SDK 一个 fork 中的 `project/app/motionsense`：
 
@@ -474,7 +474,7 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 ### 分区
 
 ```
-256K(env) 256K(idblock) 512K(uboot) 512K(misc) 8M(recovery) 6M(boot) 48M(rootfs) 64M(oem) 130560K(userdata)
+256K(env) 256K(idblock) 512K(uboot) 512K(misc) 8M(recovery) 6M(boot) 48M(rootfs) 65024K(oem) 512K(vnvm) 130560K(userdata)
 ```
 
 占用 256MB SPI NAND 中的 255MB。板子上实测：
@@ -484,7 +484,7 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 | recovery | 8 MB | 8 MB | 4.02 MB |
 | boot | 6 MB | 6 MB | 3.55 MB |
 | rootfs | 48 MB | 36.3 MB | 18.9 MB |
-| oem | 64 MB | 50.5 MB | 13.3 MB |
+| oem | 63.5 MB | 50.1 MB | 15.3 MB |
 | userdata | 127.5 MB | 107.4 MB | 0.03 MB |
 
 一个 UBI 分区有 12 到 20 MB 被坏块预留和文件系统自身占掉，分区越大占得越多。
@@ -500,9 +500,14 @@ sysdrv/tools/board/buildroot/motionsense_defconfig
 | boot | 6 MB 而不是 4 MB：屏幕驱动会让内核变大 |
 | rootfs | 现在用量的两倍；只有 buildroot 的包会装到这里 |
 | oem | 应用，以及给屏幕进程、字体和模型留的空间 |
+| vnvm | 瑞芯微的 vendor 存储：只属于这一块板子的东西，比如它的以太网地址 |
 | userdata | 剩下的全部：存放升级包 |
 
-顺序是有讲究的。`misc`、`recovery` 和 `userdata` 永远不能挪：前两个挪了 U-Boot 就找不到，升级包在第三个里面。`boot`、`rootfs` 和 `oem` 夹在它们中间，所以以后的升级可以写入新的分区表，让这三个互相调整大小。现在还没有做这件事。
+顺序是有讲究的。`misc`、`recovery`、`vnvm` 和 `userdata` 永远不能挪：前两个挪了 U-Boot 就找不到，第三个里是无法重新生成的东西，升级包在第四个里面。`boot`、`rootfs` 和 `oem` 夹在它们中间，所以以后的升级可以写入新的分区表，让这三个互相调整大小。现在还没有做这件事。
+
+`vnvm` 是 U-Boot 和内核要找的名字，换个名字就找不到。它有四个擦除块，是格式所需的两倍，用来应对坏块。构建不为它生成镜像，所以升级包和整机重刷都不会写它：实测过，U-Boot 第一次启动时存进去的地址，在用同一个镜像再刷一遍之后仍然在。用烧录工具擦除整片 flash 则会把它清掉。构建时会为它打印一行红色的 "Not found image file"，那是打包脚本跳过了它，不是失败。
+
+U-Boot 从这里读以太网地址。读不到时它随机生成一个并存进去，所以地址只随机一次，之后不变。厂商的 `RkLunch.sh` 仍然在 `/userdata/ethaddr.txt` 里留着一份副本，它已经不起任何决定作用。
 
 `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
 
