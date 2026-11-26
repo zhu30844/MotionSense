@@ -142,6 +142,12 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # Install
 # ------------------------------------------------------------------
 install(TARGETS ${PROJECT_NAME} DESTINATION ".")
+
+# Vendor storage is the board's: the simulator has none.
+if(NOT MS_PLATFORM STREQUAL "pcsim")
+    add_executable(ms-vendor src/tools/ms-vendor.c)
+    install(TARGETS ms-vendor DESTINATION ".")
+endif()
 # install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/www/ DESTINATION "www")
 
 # Vendor shared libraries. Only needed for the standalone layout: under the

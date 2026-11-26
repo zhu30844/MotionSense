@@ -66,6 +66,7 @@ c-daemon:
 	# subdirectory first; the shared bin/ and lib/ are not ours to wipe.
 	rm -rf $(RK_APP_OUTPUT)/share/MotionSense
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(MS_STAGE_DIR)/MotionSense)
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(MS_STAGE_DIR)/ms-vendor)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/update/ms-update)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/RkLunch.sh)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/share/MotionSense/fonts, $(MS_STAGE_DIR)/fonts)
