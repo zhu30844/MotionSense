@@ -34,8 +34,8 @@ def pin_y(n):
 PLACE = {
     # Pro Max sockets.
     "J3": (ROW_1, (PIN_Y0 + PIN_Y1) / 2, 90), "J4": (ROW_21, (PIN_Y0 + PIN_Y1) / 2, 270),
-    # Side A: barrel jack (axis x = 19, face 1.5 mm past the edge) and battery terminal.
-    "J1": (21.3, 9.1, 90, "origin"), "J2": (38, 4.2, 0),
+    # Side A: barrel jack (axis x = 19, face 3.5 mm past the edge, flush with the outer wall) and battery terminal.
+    "J1": (21.3, 7.1, 90, "origin"), "J2": (38, 4.2, 0),
     "D1": (21.5, 18, 180), "D7": (38, 15, 0), "F1": (29.2, 17.5, 90), "D2": (29.1, 8, 90), "C1": (38.5, 22.5, 0),
     # Buttons on the roof column x = 67 of layout "corner".
     "SW1": (67, 12, 0), "SW2": (67, 30, 0), "SW3": (67, 44, 0),

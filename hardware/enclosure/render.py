@@ -12,8 +12,10 @@ import vtk
 out, views, src = sys.argv[1], sys.argv[2].split(","), sys.argv[3]
 hide = set(sys.argv[4].split(",")) if len(sys.argv) > 4 else set()
 ghost = set(sys.argv[5].split(",")) if len(sys.argv) > 5 else set()
-colours = {"base_bottom": (.3, .3, .3), "base_shell": (.85, .85, .82), "yoke": (.55, .6, .7), "head": (.85, .85, .82),
-           "baseboard": (.1, .45, .2), "promax": (.15, .15, .15), "pan_servo": (.2, .3, .8),
+colours = {"base_bottom": (.3, .3, .3), "base_shell": (.85, .85, .82), "pedestal": (.7, .7, .68), "yoke": (.55, .6, .7),
+           "head_front": (.85, .85, .82), "head_back": (.75, .75, .72),
+           "cap_power": (.8, .2, .2), "cap_net": (.3, .3, .3), "cap_stop": (.3, .3, .3),
+           "baseboard": (.1, .45, .2), "promax": (.15, .15, .15), "pan_servo": (.2, .3, .8), "tilt_servo": (.2, .3, .8),
            "camera": (.1, .5, .25), "oled": (.15, .3, .75)}
 ren = vtk.vtkRenderer()
 ren.SetBackground(1, 1, 1)
