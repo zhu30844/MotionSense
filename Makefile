@@ -69,9 +69,11 @@ c-daemon:
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(MS_STAGE_DIR)/ms-vendor)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/update/ms-update)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/RkLunch.sh)
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/bin, $(CURRENT_DIR)/ms-hwaddr)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/share/MotionSense/fonts, $(MS_STAGE_DIR)/fonts)
 	# root/ goes into the rootfs, not the oem partition (__PACKAGE_ROOTFS).
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S99motionsense)
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S51usbaddr)
 	$(call MAROC_STRIP_DEBUG_SYMBOL, $(RK_APP_OUTPUT)/bin)
 
 go-agent:

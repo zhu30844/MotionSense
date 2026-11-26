@@ -737,8 +737,16 @@ it in red, which is the packer skipping it and not a failure.
 
 #### The Ethernet address
 
-It is kept in `vnvm`, as item 3: twelve bytes, the address of `eth0` and then
-one for a second port. Three things touch it, in this order at every boot:
+It is kept in `vnvm`, as item 3: twelve bytes, which is two addresses. The
+board has one Ethernet port, `eth0`, and the first address is its. The second
+is there because Rockchip's format has room for two ports and U-Boot checks
+both: finding the second one empty it would make one up and write the item
+again, our script would then find the item changed and write it back, and so
+on at every boot. That is read from U-Boot's code, not tried. So the second
+is filled with a fixed value, the one worked out for the name `eth1`, which
+nothing on this board uses.
+
+Three things touch the item, in this order at every boot:
 
 1. **U-Boot** reads it and hands the first address to the kernel. Finding
    none, it makes up a random one and stores it.
@@ -773,7 +781,7 @@ sits beside the addresses, and so goes wherever they go.
 address of your own, write both addresses and the mark, then reboot:
 
 ```sh
-ms-vendor set 3 0a00000000010e0000000001    # eth0, then the second port
+ms-vendor set 3 0a00000000010e0000000001    # eth0, then the unused second address
 ms-vendor set 200 01
 ```
 
@@ -786,6 +794,31 @@ U-Boot from the second; `00:11:22:33:44:55` written by hand was still there
 after a reboot; `0a:00:00:00:00:01` written by hand was replaced without the
 mark, stayed through two reboots with it, and was replaced once the mark was
 cleared. Not tried with a cable, so not seen from a router.
+
+#### The USB network's addresses
+
+The USB network has two: the board's end, `usb0`, and the one the board tells
+the PC to use for its end. The kernel makes up both at random each time the
+gadget is created, which is at every boot. A PC names and remembers a network
+card by its address, so to it the board was a new card at every boot, and
+whatever had been set up for the last one, a fixed IP for instance, was gone.
+
+`ms-hwaddr <name>` prints the address worked out for a name, in the same way
+as the Ethernet one: `ms-hwaddr usb0` and `ms-hwaddr usb0-host` are these two,
+and `ms-hwaddr eth0` is what `RkLunch.sh` uses.
+
+`S51usbaddr` sets them. It runs straight after the vendor's `S50usbdevice`,
+which builds the gadget and offers no place to do this from. The kernel takes
+the addresses only while no configuration uses the function, so the script
+takes the gadget off the bus, writes them, and puts it back: the PC sees the
+board leave and come back once, about 0.4 s apart, some 5 s into the boot.
+They are not kept in vendor storage: nothing reads them before this script
+does, and working them out again costs nothing.
+
+Tried on the Pro Max: `usb0` is `0a:76:7c:90:8b:3a` and the PC's card is
+`enx1a43fd60638f` after each of two boots, and after restarting the gadget
+the way the vendor's script does when the cable is pulled. Before, the PC's
+card had a new name at every boot. Tried with a Linux PC only.
 
 `userdata` is sized so that the largest possible package still fits: with
 `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
