@@ -59,15 +59,23 @@ CEILING = PROMAX_Z + 1.0 + RJ45_TOP + 1.0
 TOP = CEILING + ROOF
 TUBE = 10.0              # button guide tubes hang this far below the ceiling
 
-# ---- Servo: EMAX ES08MA II, from its drawing; measure the part before printing ---
+# ---- Servo: EMAX ES08MA II. Numbers are the drawing's; those marked "scaled" were measured off it ---
 SERVO_L, SERVO_W, SERVO_H = 23.0, 11.5, 24.0
-SERVO_TAB_Z, SERVO_TAB_T, SERVO_TAB_L = 15.0, 2.5, 32.5
+SERVO_TAB_Z, SERVO_TAB_L = 15.0, 32.5   # tabs: underside above the case bottom, tip to tip
+SERVO_TAB_T = 1.8       # scaled
 SERVO_HOLES = 27.6
 SERVO_SHAFT = 5.75      # shaft axis from the near end of the body
-SERVO_UP = SERVO_H - SERVO_TAB_Z   # case top above the underside of the tabs
+SERVO_UP = SERVO_H - SERVO_TAB_Z   # top of the gear housing above the underside of the tabs
+SERVO_CASE = 19.65 - SERVO_TAB_Z   # the lower part of the case top, beside the gear housing
+SERVO_GEAR_L = 14.6     # scaled: the gear housing covers this much of the length, from the shaft end
+SERVO_SPLINE = 3.7      # scaled: shaft above the gear housing
 SERVO_FIT = 0.3
-# Horn: the straight two-arm one, cut down to HORN_L. Guessed; measure the part.
-HORN_L, HORN_W, HORN_T, HORN_HUB_D, HORN_HUB_L = 20.0, 7.0, 2.0, 7.5, 4.0
+# Horn: a 15T aluminium disc bought for this servo, 18 mm across, twelve M2 threads. Opposite outer
+# holes are 14.8 or 14 mm apart, so parts take screws at DISC_HOLES / 2 with room for either.
+DISC_D, DISC_HOLES = 18.0, 14.6
+DISC_T, DISC_HUB = 2.0, 1.1    # from the seller: the plate, and the hub standing out of its back (3.1 in all)
+DISC_SEAT = 1.0                # guessed: the hub's end above the gear housing once pushed home; measure the part
+DISC_UP = DISC_SEAT + DISC_HUB + DISC_T   # the disc's outer face above the gear housing
 
 # ---- Pan-tilt ----------------------------------------------------------------
 PAN_X, PAN_Y = LAYOUTS[LAYOUT]["pan"]
@@ -75,7 +83,7 @@ RING_R, RING_H = 26.0, 20.0  # pedestal on the roof. Tall, to look down from a f
 RING_WALL, RING_FLOOR = 2.4, 2.0
 PED_SCREWS = [(16, 8), (-16, 8), (13, -13), (-13, -13)]   # M2.5 x 8 into bosses under the roof
 CABLE = (-6.5, -18.0, 6.5, -12.0)   # cable hole behind the pan axis: x0, y0, x1, y1 from the axis
-YOKE_T = 5.0
+YOKE_T = 6.5
 YOKE_Z = TOP + RING_H + 0.4
 HEAD_W, HEAD_D, HEAD_H = 40.0, 30.0, 32.0   # camera block; the tilt axis runs through its centre
 SLAB_D, SLAB_H = 9.0, 32.0                  # thin upper part for the OLED, flush with the front
@@ -128,10 +136,11 @@ def at_pan(shape, z=0.0):
 
 def servo():
     """Servo with its shaft axis on the z axis, the long end towards +x and the tab underside at z = 0."""
-    s = box(-SERVO_SHAFT, -SERVO_W / 2, -SERVO_TAB_Z, SERVO_L - SERVO_SHAFT, SERVO_W / 2, SERVO_UP)
+    s = box(-SERVO_SHAFT, -SERVO_W / 2, -SERVO_TAB_Z, SERVO_L - SERVO_SHAFT, SERVO_W / 2, SERVO_CASE)
+    s = s.union(box(-SERVO_SHAFT, -SERVO_W / 2, SERVO_CASE, SERVO_GEAR_L - SERVO_SHAFT, SERVO_W / 2, SERVO_UP))
     c = SERVO_L / 2 - SERVO_SHAFT
     s = s.union(box(c - SERVO_TAB_L / 2, -SERVO_W / 2, 0, c + SERVO_TAB_L / 2, SERVO_W / 2, SERVO_TAB_T))
-    return s.union(cyl(0, 0, SERVO_UP, SERVO_UP + 4.0, 2.4))
+    return s.union(cyl(0, 0, SERVO_UP, SERVO_UP + SERVO_SPLINE, 2.4))
 
 
 def pan_servo():
@@ -280,9 +289,11 @@ def yoke():
     t, f = YOKE_T, SERVO_FIT
     axis = t + TILT_Z
     y = cyl(0, 0, 0, t, RING_R + 2.0).union(box(-ARM_IN - ARM_T, -9, 0, ARM_IN + ARM_SERVO_T, 9, t))
-    # The horn lies in a pocket on top; its hub goes down through the plate to the servo.
-    y = y.cut(box(-HORN_L / 2 - 0.3, -HORN_W / 2 - 0.3, t - HORN_T, HORN_L / 2 + 0.3, HORN_W / 2 + 0.3, t))
-    y = y.cut(cyl(0, 0, 0, t, HORN_HUB_D / 2 + 0.2))
+    # The horn disc sits in a pocket underneath; two M2 x 5 screws from above pull the plate onto it,
+    # and the hole in the middle reaches the screw that holds the disc on the shaft.
+    y = y.cut(cyl(0, 0, 0, DISC_UP - 0.4, DISC_D / 2 + 0.3)).cut(cyl(0, 0, 0, t, 2.6))
+    for x in (-DISC_HOLES / 2, DISC_HOLES / 2):
+        y = y.cut(cyl(x, 0, 0, t, 1.3))
     y = y.cut(box(CABLE[0], CABLE[1], 0, CABLE[2], CABLE[3], t))
     groove = cyl(0, 0, 0, 2.3, RING_R + 0.4).cut(cyl(0, 0, 0, 2.3, RING_R - RING_WALL - 0.4))
     y = y.cut(groove.intersect(sector(176, 364, RING_R + 2, 0, 2.3)))
@@ -326,11 +337,13 @@ def head():
         for z in (cam_top - 2.0, cam_top - 15.5):
             h = h.union(cyly(x, -front + t, back, z, 2.2)).cut(cyly(x, -front + t + 0.6, back, z, 0.8))
     h = h.cut(box(-7, -front + t, -top, 7, -front + t + 3.5, -top + t))     # cables leave through the floor
-    # Side B wall: pad with a slot for the tilt servo's horn. The halves close around it.
-    arm = half + 1.0 - 0.6 - HORN_HUB_L          # servo-side face of the horn's arms
-    h = h.union(box(arm - 1.8, -HORN_W / 2 - 1.5, -HORN_L / 2 - 1.5, half - t, HORN_W / 2 + 1.5, HORN_L / 2 + 1.5))
-    h = h.cut(box(arm - 0.2, -HORN_W / 2 - 0.2, -HORN_L / 2 - 0.2, arm + HORN_T + 0.2, HORN_W / 2 + 0.2, HORN_L / 2 + 0.2))
-    h = h.cut(cylx(arm, half, 0, 0, HORN_HUB_D / 2 + 0.2)).cut(cylx(arm - 1.8, arm, 0, 0, 2.5))
+    # Side B wall: the tilt servo's horn disc sits in a round opening. Two M2 cap screws stand in the
+    # disc, above and below the shaft; the halves close around their heads and the head turns with them.
+    face = half + 1.0 - DISC_UP                  # the disc's face away from the servo
+    h = h.union(box(face - 2.5, -6, -11, half - t, 6, 11))
+    h = h.cut(cylx(face, half, 0, 0, DISC_D / 2 + 0.4)).cut(cylx(face - 2.5, face, 0, 0, 2.8))
+    for z in (-DISC_HOLES / 2, DISC_HOLES / 2):
+        h = h.cut(box(face - 2.3, -2.1, z - 2.4, face, 2.1, z + 2.4))
     # Side D wall: bearing for the yoke's pivot pin.
     h = h.union(box(-half + t, -5.5, -5.5, -half + 5.0, 5.5, 5.5)).cut(cylx(-half, -half + 5.0, 0, 0, 3.2))
     return h
