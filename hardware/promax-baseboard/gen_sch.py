@@ -23,7 +23,7 @@ LCSC = {
     "TPS54302": "C311983", "AP2112K-3.3": "C51118", "DS3231SN": "C9866", "24AA02E48T-I/OT": "C38987",
     "SHT40-AD1B": "C2909890","SS34": "C8678", "SMAJ15CA": "C110044", "3A hold": "C7500481", "10uH 6.5A": "C51933843",
     "220u 25V": "C2983317", "470u 16V": "C2977552", "10u 50V": "C13585", "22u 25V": "C12891", "100n": "C49678",
-    "68p": "C2171219", "1u": "C28323", "2u2": "C49217",
+    "68p": "C2171219", "1u": "C28323",
     "100k": "C149504", "10k": "C17414", "1k": "C17513", "4k7": "C17673", "330": "C17630", "22": "C17561",
     "47k": "C17713", "13k": "C17455", "75k": "C17819", "51k": "C17737", "7k5": "C17807",
     "D4": "C181864", "D5": "C417350", "D6": "C99771",
@@ -298,7 +298,7 @@ place("Regulator_Linear:AP2112K-3.3", "U3", "AP2112K-3.3", 60.96, 127, {"1": "VS
       fp="Package_TO_SOT_SMD:SOT-23-5", refat=(55.9, 119.4, "left"), valat=(60.96, 119.4, "left"))
 C("C30", "1u", 20.32, 137.16, "VSYS")
 R("R30", "100k", 43.18, 142.24, "3V3_CORE", GND)
-C("C31", "2u2", 83.82, 137.16, "3V3_B")
+C("C31", "1u", 83.82, 137.16, "3V3_B")   # the AP2112K asks for 1 uF; the 2u2 part first chosen is discontinued
 for i, (name, colour, net) in enumerate([("PWR", "green", "3V3_B"), ("NET", "blue", "LED_NET"), ("REC", "red", "LED_REC")]):
     x = 104.14 + i * 30.48
     R("R%d" % (31 + i), "330" if colour == "blue" else "1k", x, 132.08, net, "LED_%s_A" % name)  # blue drops about 2.8 V
