@@ -93,7 +93,8 @@ PLACE.update({"R22": (51.3 + 9.7, 24.3 - 2.0, 270), "JP1": (51.3 + 10.5, 24.3 - 
 HOLES = [(4, 4), (4, 68), (72, 4), (72, 68)]
 
 # KiCad footprints whose own 3D model is not installed here get one fetched by LCSC number.
-MODELS = {"Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder": "F1812_L4.5-W3.2-H1.0.wrl"}
+MODELS = {"Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder": "F1812_L4.5-W3.2-H1.0.wrl",
+          "Sensirion_DFN-4_1.5x1.5mm_P0.8mm_SHT4x_NoCentralPad": "DFN-4_L1.5-W1.5-P0.8.wrl"}
 
 # Silkscreen for whoever plugs things in: (text, x, y of its middle, height).
 CAPTIONS = [
