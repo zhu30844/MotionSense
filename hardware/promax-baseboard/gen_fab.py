@@ -45,7 +45,8 @@ JLC = {
     "C9866": (270, 0, 0),        # DS3231SN, SOIC-16W
     "C2937625": (270, 0, 2.54),  # 1x3 pin header: KiCad's origin is pin 1
     "C2691448": (270, 0, 3.81),  # 1x4 pin header
-    "C181864": (0, 1.27, 0), "C417350": (0, 1.27, 0), "C99771": (0, 1.27, 0),   # LEDs: KiCad's origin is pin 1
+    # LEDs: pad 1 is the anode there and the cathode in KiCad, so these go by the flat side, not the pad number.
+    "C181864": (180, 1.27, 0), "C417350": (180, 1.27, 0), "C99771": (180, 1.27, 0),
     "C114218": (0, -0.08, -0.17),   # card socket
 }
 
@@ -76,13 +77,16 @@ def main():
     for f in parts(board):
         # "0805", not "C_0805_2012Metric_...": JLCPCB compares this text with the part's package name.
         package = re.sub(r"^[RC]_(\d{4})_.*", r"\1", f.GetFPID().GetLibItemName().wx_str())
-        key = (f.GetValue(), package, f.GetFieldText("LCSC"))
-        groups.setdefault(key, []).append(f.GetReference())
+        # One line per part number, whatever the parts are called on the board: JLCPCB asks about any other.
+        values, _, refs = groups.setdefault(f.GetFieldText("LCSC"), ([], package, []))
+        refs.append(f.GetReference())
+        if f.GetValue() not in values:
+            values.append(f.GetValue())
     with open(os.path.join(OUT, PROJECT + "-bom.csv"), "w", newline="") as out:
         w = csv.writer(out)
         w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
-        for (value, fp, lcsc), refs in sorted(groups.items(), key=lambda g: g[1][0]):
-            w.writerow([value, ",".join(refs), fp, lcsc])
+        for lcsc, (values, fp, refs) in sorted(groups.items(), key=lambda g: g[1][2][0]):
+            w.writerow([" / ".join(values), ",".join(refs), fp, lcsc])
     with open(os.path.join(OUT, PROJECT + "-cpl.csv"), "w", newline="") as out:
         w = csv.writer(out)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
@@ -91,7 +95,7 @@ def main():
             # Same frame as the Gerber files: the sheet's, with y upwards.
             w.writerow([f.GetReference(), "%.4fmm" % pcbnew.ToMM(x), "%.4fmm" % -pcbnew.ToMM(y),
                         "bottom" if f.IsFlipped() else "top", "%g" % angle])
-    print("%d kinds of part, %d parts" % (len(groups), sum(len(r) for r in groups.values())))
+    print("%d kinds of part, %d parts" % (len(groups), sum(len(g[2]) for g in groups.values())))
 
 
 main()
