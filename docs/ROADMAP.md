@@ -1,6 +1,6 @@
 # Roadmap
 
-Last edited: 2026-11-25
+Last edited: 2026-11-26
 
 1.x assumes one board, one SD card, fixed paths, two unsupervised processes
 and hand-written pages. 2.0 replaces those assumptions; most features come
@@ -63,9 +63,14 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       `/v2/` and on the hand-written pages
 
 ### Recording
+- [ ] Events as intervals, replacing the marks the databases hold today. The
+      design is [events.md](events.md)
 - [ ] Better switching between motion and stillness, so an action is recorded
       whole: today the frame rate drops back as soon as one still frame is
-      reported (see *Known issues* in the [README](../README.md))
+      reported (see *Known issues* in the [README](../README.md)). It is the
+      same decision as where an event ends
+- [ ] Settings and secrets on the board, not on the card; a factory reset
+      that erases them, started by holding a button
 
 ### Development
 - [x] PC simulator, so front-end work needs no board

@@ -2,7 +2,9 @@
 
 [English](README.md) | 简体中文
 
-最后编辑：2026-11-25
+最后编辑：2026-11-26
+
+> **状态。** 要使用 MotionSense，请用 [v1 的发布版本](https://github.com/zhu30844/MotionSense/releases)，或者切到 [`1.x` 分支](https://github.com/zhu30844/MotionSense/tree/1.x)。`main` 分支正在向 2.0 重构，在 2.0 发布之前不保证功能可用。
 
 面向 Luckfox Pico Pro Max（Rockchip RV1106，正在适配 Ultra）的运动触发录像程序。把 H.264 以 HLS 形式录到 SD 卡上，通过 WebRTC 提供实时画面、通过 HTTP 提供回放界面，并把运动事件记录到 SQLite。
 
