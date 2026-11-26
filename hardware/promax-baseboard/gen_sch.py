@@ -265,7 +265,8 @@ horiz("Diode:SS34", "D1", "SS34", 68.58, 40.64, "VJACK", "VIN_OR", SMA, rot=180)
 horiz("Diode:SS34", "D7", "SS34", 68.58, 66.04, "VBAT", "VIN_OR", SMA, rot=180)
 horiz("Device:Polyfuse", "F1", "3A hold", 104.14, 45.72, "VIN_OR", "VIN", "Fuse:Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder")
 # Latching push button: out holds UVLO low and both regulators stop.
-place("Switch:SW_SPDT", "SW1", "POWER latching", 149.86, 45.72, {"1": GND, "2": "UVLO", "3": NC},
+# Its drawing (8.5-8.5 ZS): pin 2 is the common, joined to pin 3 when out and to pin 1 when pushed in.
+place("Switch:SW_SPDT", "SW1", "POWER latching", 149.86, 45.72, {"1": NC, "2": "UVLO", "3": GND},
       fp="baseboard:SW-TH_6P-8.5-8.5-ZS", refat=(149.86, 38.1, None), valat=(149.86, 53.3, None))
 text("SW1 carries no load current; released = off", 130, 58, 1.27)
 place("Diode:SMAJ15A", "D2", "SMAJ15CA", 96.52, 68.58, {"1": "VIN", "2": GND}, rot=270, fp=SMA,
