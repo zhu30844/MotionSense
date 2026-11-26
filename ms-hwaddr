@@ -1,0 +1,10 @@
+#!/bin/sh
+# Prints the address this board gives a network port, worked out from the
+# chip's serial number: ms-hwaddr eth0 -> 86:e2:85:8d:2e:d2.
+serial=$(sed -n 's/^Serial[^:]*: *//p' /proc/cpuinfo)
+# A serial of all zeros is no serial.
+[ -n "$1" ] && [ -n "$(echo "$serial" | tr -d 0)" ] || exit 1
+
+# The first byte is made unicast and locally administered.
+h=$(printf 'motionsense %s %s' "$1" "$serial" | sha256sum)
+printf '%02x:%s\n' $(( (0x${h:0:2} & 0xfc) | 2 )) "$(echo "${h:2:10}" | sed 's/../&:/g; s/:$//')"
