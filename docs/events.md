@@ -1,6 +1,6 @@
 # Events and the recording database
 
-Last edited: 2026-11-25
+Last edited: 2026-11-26
 
 This is a design, agreed on 2026-11-25 and not built yet. It replaces the
 databases the recorder writes today, which record frame numbers and cannot say
@@ -141,10 +141,18 @@ Decided with the above, because it says what may be put in these databases.
 - **A factory reset erases `/userdata`**, done by recovery because the running
   system cannot format what it has mounted. It is started by holding a button
   for some seconds, which is also the answer to a forgotten password. The
-  kernel already registers an ADC key on this board; whether it is the BOOT
-  button and usable for this has not been tried. `ethaddr.txt` in `/userdata`
-  holds the Ethernet address: where it comes from has to be found out before
-  anything erases it.
+  BOOT button serves: tried on the Pro Max, the kernel reports it as key 115
+  on `/dev/input/event0`, pressed and released, while the system runs. Held
+  while power is applied it puts the chip in Maskrom mode instead, so the
+  gesture is a long press on a running board.
+- **The Ethernet address must not live in `/userdata`.** It does today, in
+  `ethaddr.txt`. The kernel finds no stored address on this board and makes up
+  a random one at every boot; the vendor's `RkLunch.sh` saves the first one it
+  sees to that file and puts it back at each later boot. Erase the file and
+  the board comes back with a new address, and whatever the router had tied to
+  the old one is lost. Before a factory reset exists, the address is to be
+  derived from the chip's serial number, which is the same at every boot and
+  needs storing nowhere.
 
 ## Not in this design
 
