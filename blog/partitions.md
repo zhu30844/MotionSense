@@ -122,7 +122,9 @@ busybox system in RAM. Its start-up runs `/usr/bin/RkLunch.sh`, which
 own, that copy has to be changed; it is one of the few places where we edited
 a vendor file, to take the script's name from the board configuration.
 
-The order that makes a flash safe to interrupt:
+The order that makes a flash safe to interrupt, in short; the whole path,
+with what happens at each point where power can be lost, is in
+[the post on updates](recovery-updates.md):
 
 1. The running system checks the package and stores it in `userdata`.
 2. It writes the message into `misc` and reboots.

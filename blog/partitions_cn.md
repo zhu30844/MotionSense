@@ -78,7 +78,7 @@ struct bootloader_message {
 
 `RK_ENABLE_RECOVERY=y` 加上由 `RK_RECOVERY_KERNEL_DEFCONFIG_FRAGMENT` 指定的内核配置片段，会构建出 `recovery.img`：一个内核和一个跑在内存里的 busybox 系统。它启动时执行 `/usr/bin/RkLunch.sh`，这个文件由 `build.sh` 里的 `build_recovery` 从 `project/scripts` 复制过来。要运行自己的脚本，就得改这次复制；这是我们少数几处改了厂商文件的地方之一，改动是让脚本的名字来自板级配置。
 
-让刷写可以被安全打断的顺序：
+让刷写可以被安全打断的顺序，简要如下；完整的路径，以及在每个可能断电的位置会发生什么，见[讲升级的那一篇](recovery-updates_cn.md)：
 
 1. 运行中的系统检查升级包，把它存进 `userdata`。
 2. 它把消息写进 `misc`，然后重启。
