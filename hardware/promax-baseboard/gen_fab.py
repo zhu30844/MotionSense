@@ -48,8 +48,8 @@ def main():
     os.makedirs(gerbers)
     run("pcb", "export", "gerbers", "-o", gerbers + "/", "--layers", LAYERS, "--no-x2", "--no-netlist",
         "--subtract-soldermask", BOARD)
-    run("pcb", "export", "drill", "-o", gerbers + "/", "--excellon-separate-th", "--excellon-oval-format", "alternate",
-        "--generate-map", "--map-format", "gerberx2", BOARD)
+    # No drill map: JLCPCB's viewer lays it over the board, legend and all, as if it were a layer.
+    run("pcb", "export", "drill", "-o", gerbers + "/", "--excellon-separate-th", "--excellon-oval-format", "alternate", BOARD)
     with zipfile.ZipFile(os.path.join(OUT, PROJECT + "-gerbers.zip"), "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(os.listdir(gerbers)):
             z.write(os.path.join(gerbers, name), name)
