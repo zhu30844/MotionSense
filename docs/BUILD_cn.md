@@ -599,6 +599,14 @@ USB gadget 由 MotionSense 自己建立，在它自己的 `S50usbdevice` 里。�
 | `SHA256SUMS` | 每个镜像一行 |
 | `recovery.img`、`boot.img`、`rootfs.img`、`oem.img` | 默认四个都带，47 MB；`--only oem` 只打应用 |
 
+```bash
+scripts/mk-update.sh                           # all four, for the board that was built
+scripts/mk-update.sh --only "boot rootfs oem"  # without recovery
+scripts/mk-update.sh --only oem                # the app alone
+```
+
+板名取自构建放进 rootfs 的那份 `board.json`，也就是板子拿来和升级包比对的那个文件；版本号取自 `scripts/version.sh`。要用别的值就给 `--slug` 和 `--version`。文件输出到 SDK 的 `output/release/`。
+
 永远不带 `uboot`：写它的时候断电，板子就完全起不来了。永远不带 `userdata`：配置和升级包本身都在里面。
 
 升级包也带 `recovery.img`，除非用 `--only` 把它排除。recovery 不能重写自己，所以由 `ms-update` 在主系统里处理它，在设置任何标记之前：先读出分区的内容，只有和镜像不同才写入并回读校验。所以大多数升级不会动它。写入期间断电没有代价：板子照常启动。这种情况下会留下一个文件 `/userdata/update/recovery-pending`，只要它还在，不带 `recovery.img` 的升级包就会被拒绝：标记加上损坏的 recovery 会让板子无处可启动。任何带着它的升级包（每个发布包都带）都会把分区修好并继续升级。

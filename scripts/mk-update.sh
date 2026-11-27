@@ -1,13 +1,16 @@
 #!/bin/bash
 # Packs the update package that update/ms-update takes, from a finished build.
 #
-# Usage: scripts/mk-update.sh --slug NAME --version V [--sdk DIR] [--only "oem"]
-#                             [--out FILE]
+# Usage: scripts/mk-update.sh [--only "oem"] [--slug NAME] [--version V]
+#                             [--sdk DIR] [--out FILE]
 #
-#   --slug     board name; must equal "name" in the board's board.json.
-#   --version  recorded in the manifest.
-#   --sdk      SDK checkout; default: three levels up from this repository.
+# With no arguments: all four partitions, for the board that was built.
+#
 #   --only     partitions to carry; default: "recovery boot rootfs oem".
+#   --slug     board name; must equal "name" in the board's board.json.
+#              Default: read from the board.json the build put in the rootfs.
+#   --version  recorded in the manifest; default: what scripts/version.sh prints.
+#   --sdk      SDK checkout; default: three levels up from this repository.
 #   --out      default: <sdk>/output/release/MotionSense-<version>-<slug>-update.tar
 set -euo pipefail
 
@@ -24,11 +27,19 @@ while [ $# -gt 0 ]; do
         --version) VERSION=$2; shift 2 ;;
         --only)    PARTS=$2; shift 2 ;;
         --out)     OUT=$2; shift 2 ;;
-        -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
         *) die "unknown argument: $1" ;;
     esac
 done
-[ -n "$SLUG" ] && [ -n "$VERSION" ] || die "--slug and --version are required"
+if [ -z "$SLUG" ]; then
+    # The same file the board compares the manifest with.
+    board=$(ls "$SDK"/output/out/rootfs_*/etc/motionsense/board.json 2>/dev/null | head -n 1) || true
+    [ -n "$board" ] || die "no board.json in the built rootfs: run ./build.sh first, or give --slug"
+    SLUG=$(sed -n 's/.*"name"[^"]*"\([^"]*\)".*/\1/p' "$board" | head -n 1)
+    [ -n "$SLUG" ] || die "no name in $board: give --slug"
+fi
+[ -n "$VERSION" ] || VERSION=$("$HERE/version.sh")
+case "$VERSION" in */*|*' '*|'') die "bad version '$VERSION'" ;; esac
 [ -n "$OUT" ] || OUT=$SDK/output/release/MotionSense-$VERSION-$SLUG-update.tar
 
 IMG_DIR=$SDK/output/image
