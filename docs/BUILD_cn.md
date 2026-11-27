@@ -2,7 +2,7 @@
 
 [English](BUILD.md) | 简体中文
 
-最后编辑：2026-11-26
+最后编辑：2026-11-27
 
 MotionSense 的目标硬件是 Luckfox Pico Pro Max（Rockchip RV1106，SPI NAND）。它作为 Luckfox SDK 内的一个应用进行构建，位于该 SDK 一个 fork 中的 `project/app/motionsense`：
 
@@ -92,11 +92,13 @@ build_updateimg              -> update.img
 | 变量 | 时机 | 本开发板 |
 |---|---|---|
 | `RK_PRE_BUILD_OEM_SCRIPT` | oem staging 填充完成之后、`oem.img` 之前 | `motionsense-oem-pre.sh` |
-| `RK_POST_BUILD_SCRIPT` | `oem.img` 之后、overlay 之前 | 未设置 |
-| `RK_POST_OVERLAY` | 在此之后，覆盖到 rootfs staging 上 | `overlay-luckfox-config`、`-buildroot-init`、`-buildroot-shadow`、`overlay-motionsense` |
-| `RK_PRE_BUILD_USERDATA_SCRIPT` | userdata staging 之后、`userdata.img` 之前 | `luckfox-userdata-pre.sh` |
+| `RK_POST_BUILD_SCRIPT` | `oem.img` 之后、overlay 之前 | `motionsense-rootfs-post.sh` |
+| `RK_POST_OVERLAY` | 在此之后，覆盖到 rootfs staging 上 | `overlay-motionsense` |
+| `RK_PRE_BUILD_USERDATA_SCRIPT` | userdata staging 之后、`userdata.img` 之前 | 未设置 |
 
 oem hook 是从镜像中剔除文件的位置：它在所有内容复制进 staging 目录之后、文件系统生成之前，对该目录运行。`motionsense-oem-pre.sh` 用它删除 media 构建安装的 demo 和测试二进制文件。
+
+`motionsense-rootfs-post.sh` 对 rootfs staging 做同样的事，处理 buildroot 选项去不掉的东西：libv4l 工具里的几个 compliance 工具，以及 `ssh-keyscan`。它还让 dhcpcd 不去管 `usb0`，因为这个接口的地址是固定的。
 
 注意 vendor 的命名：函数名是 `__RUN_POST_BUILD_USERDATA_SCRIPT`，但它读取的变量是 `RK_PRE_BUILD_USERDATA_SCRIPT`。
 
@@ -133,9 +135,17 @@ overlay 位于同一目录下的 `overlay/`：
 | `overlay-luckfox-fastboot`、`-buildroot-tiny` | 为快速启动精简的 `etc/inittab`、`etc/fstab` |
 | `-buildroot-86panel`、`-rgb`、`-webbee`、`-sim7600g`、`-ppp`、`-glibc-*` | 其他 Luckfox 开发板 |
 
-本开发板使用前三个。
+Pro Max 的镜像一个都不用。`luckfox-config` 在启动时重新分配排针引脚，而底板的引脚已固定在设备树里。其余的大多在这个镜像里什么都不做（没有 Python、`amixer`、`hciattach` 和 samba 可供它们操作），`S99rtcinit` 则会在发现 RTC 未设置时往里写 2024-01-01。仍然需要的部分现在是 MotionSense 自己的，由它的 `Makefile` 安装：
 
-需要了解的是 `S99usb0config`：当 USB 控制器处于 peripheral 模式时，它把 `usb0` 设为 `172.32.0.93`，最多重试十次。RNDIS 地址就来自这里。
+| 原来 | 现在 |
+|---|---|
+| `S99usb0config` 给 `usb0` 设 `172.32.0.93`，并在重新插线后恢复 gadget | `S51usbaddr` |
+| `S50sshd` 里对 `/var/empty` 的 `chown` | `S49sshdir`；`S50sshd` 用 buildroot 自带的 |
+| 带 `PermitRootLogin yes` 的 `etc/ssh/sshd_config` | 本仓库里的 `sshd_config` |
+| 带 root 密码的 `etc/shadow` | `buildroot-packages.fragment` 里的 `BR2_TARGET_GENERIC_ROOT_PASSWD` |
+| `etc/profile` | buildroot 自带的 |
+
+`./build.sh firmware` 不会清空暂存目录 `output/out/rootfs_uclibc_rv1106`，所以某个 overlay 被去掉后，它的文件仍会留在镜像里，直到 `./build.sh rootfs` 把这个目录重新解包一遍。
 
 Luckfox 还在 `build.sh` 本身中添加了：`LF_*` 板级配置变量（`LF_TARGET_ROOTFS`、`LF_BOOT_MEDIA`、`LF_HARDWARE`、`LF_SYSTEM`、`LF_ORIGIN_BOARD_CONFIG`、`LF_WIFI_SSID`/`LF_WIFI_PSK`、`LF_ENABLE_SPI_NAND_FAST_BOOT`），由这些数组生成的 `lunch` 菜单，以及为 SD 卡启动介质打包 `sd_update.img` 的 `lf_blkenvpackage`。
 
@@ -277,6 +287,8 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 ```
 
 它从 `luckfox_pico_defconfig` 加上声明的 package 重新生成 `sysdrv/tools/board/buildroot/motionsense_defconfig`，并刷新已解压的 buildroot 目录树中的副本。编辑 fragment 后运行它，然后重新构建。它是单独的步骤而不是构建 hook，因为 defconfig 在 SDK 的 sysdrv 阶段就被使用，早于本应用能注册的任何 hook。
+
+fragment 里有两项不是 package。一项指向 `busybox.fragment`，buildroot 把它叠在厂商的 busybox 配置上，它关掉 telnet 的客户端和服务端（登录走 ssh），以及 `inetd`、`dnsd`、`crond`、`tftp` 和 `wget`。另一项是 root 的密码，写成 MD5 哈希：工具链的 uClibc 编译时没有带 SHA-256 的 `crypt()`，而 buildroot 对明文密码用的正是这种哈希，sshd 会拒绝这样的密码。要去掉 busybox 装过的东西，buildroot 必须从空的 `output` 重新构建，原因见上文 per-package 目录一节。
 
 本应用不打包任何共享库。它所需的一切都已在镜像中，因此只要设置了 `MS_RK_MEDIA_DIR`，就会跳过 Rockchip `.so` 文件的 `install()`。
 
@@ -458,13 +470,11 @@ mmc1: new high speed SDXC card at address 59b4
 project/cfg/BoardConfig_MotionSense_Pro_Max/
 ├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense_Pro_Max-IPC.mk
 ├── motionsense-oem-pre.sh                    oem trimming for this board only
-├── luckfox-userdata-pre.sh          -> symlink into BoardConfig_IPC/
+├── motionsense-rootfs-post.sh                rootfs trimming for this board only
 └── overlay/
-    ├── overlay-luckfox-config       -> symlink
-    ├── overlay-luckfox-buildroot-init   -> symlink
-    ├── overlay-luckfox-buildroot-shadow -> symlink
     └── overlay-motionsense/etc/
         ├── motionsense/board.json
+        ├── hostname, hosts, issue            the board's name
         └── TZ
 
 sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense-pro-max.dts
@@ -552,6 +562,10 @@ USB 网络有两个地址：板子这一端的 `usb0`，以及板子告诉电脑
 `ms-hwaddr <名字>` 打印为某个名字算出来的地址，算法和以太网地址相同：`ms-hwaddr usb0` 和 `ms-hwaddr usb0-host` 就是这两个，`ms-hwaddr eth0` 则是 `RkLunch.sh` 用的那个。
 
 `S51usbaddr` 负责设置它们。它紧跟在厂商的 `S50usbdevice` 之后运行，后者负责建立 gadget，而且没有留出可以做这件事的位置。内核只在没有任何配置使用这个功能时才接受地址，所以脚本先把 gadget 从总线上摘下来，写入地址，再放回去：电脑会看到板子离开又回来一次，间隔约 0.4 秒，发生在启动后 5 秒左右。这两个地址不存进 vendor 存储：在这个脚本之前没有任何东西要读它们，重新算一遍也不花什么。
+
+同一个脚本还给 `usb0` 设 IP 地址：`172.32.0.93`，子网掩码 `255.255.0.0`，也就是 README 让用户访问的那个。
+
+之后它留在后台。USB 线拔掉再插回时，adbd 会重开它的端点，内核的反应是把整个 gadget 从控制器上摘掉：gadget 的 configfs 目录里 `UDC` 变空，板子从总线上消失，虽然它还在运行，`usb0` 的地址也还在。脚本每两秒看一次 `UDC`，空了就把控制器的名字写回去。厂商的 `S99usb0config` 的做法是把整个 gadget 重建一遍，那样两个地址又会随机一次。在 Pro Max 上试过：插回去大约两秒后电脑重新看到板子，地址不变。
 
 在 Pro Max 上试过：两次启动之后 `usb0` 都是 `0a:76:7c:90:8b:3a`，电脑上的网卡都是 `enx1a43fd60638f`；按厂商脚本在拔线时的做法重启 gadget 之后也一样。在此之前，电脑上的网卡每次启动都换一个名字。只用 Linux 电脑试过。
 

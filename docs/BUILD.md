@@ -1,6 +1,6 @@
 # Building and installing MotionSense
 
-Last edited: 2026-11-26
+Last edited: 2026-11-27
 
 MotionSense targets the Luckfox Pico Pro Max (Rockchip RV1106, SPI NAND).
 It is built as an application inside the Luckfox SDK, and lives at
@@ -109,14 +109,19 @@ board config's own directory:
 | Variable | When | This board |
 |---|---|---|
 | `RK_PRE_BUILD_OEM_SCRIPT` | after oem staging is populated, before `oem.img` | `motionsense-oem-pre.sh` |
-| `RK_POST_BUILD_SCRIPT` | after `oem.img`, before overlays | unset |
-| `RK_POST_OVERLAY` | after that, onto the rootfs staging | `overlay-luckfox-config`, `-buildroot-init`, `-buildroot-shadow`, `overlay-motionsense` |
-| `RK_PRE_BUILD_USERDATA_SCRIPT` | after userdata staging, before `userdata.img` | `luckfox-userdata-pre.sh` |
+| `RK_POST_BUILD_SCRIPT` | after `oem.img`, before overlays | `motionsense-rootfs-post.sh` |
+| `RK_POST_OVERLAY` | after that, onto the rootfs staging | `overlay-motionsense` |
+| `RK_PRE_BUILD_USERDATA_SCRIPT` | after userdata staging, before `userdata.img` | unset |
 
 The oem hook is the place to strip files from the image: it runs against the
 staging directory after everything has been copied in and before the
 filesystem is made. `motionsense-oem-pre.sh` uses it to drop the demo and test
 binaries the media build installs.
+
+`motionsense-rootfs-post.sh` does the same for the rootfs staging, for what no
+buildroot option leaves out: the compliance tools among libv4l's utilities and
+`ssh-keyscan`. It also tells dhcpcd to leave `usb0` alone, since that interface has a
+fixed address.
 
 Note the vendor naming: the function is `__RUN_POST_BUILD_USERDATA_SCRIPT` but
 the variable it reads is `RK_PRE_BUILD_USERDATA_SCRIPT`.
@@ -164,11 +169,23 @@ Overlays, same directory under `overlay/`:
 | `overlay-luckfox-fastboot`, `-buildroot-tiny` | trimmed `etc/inittab`, `etc/fstab` for fast boot |
 | `-buildroot-86panel`, `-rgb`, `-webbee`, `-sim7600g`, `-ppp`, `-glibc-*` | other Luckfox boards |
 
-This board uses the first three.
+The Pro Max image takes none of them. `luckfox-config` re-muxes header pins at
+boot, and the baseboard's pins are fixed in the device tree. Of the rest, most
+did nothing in this image (no Python, `amixer`, `hciattach` or samba to act
+on), and `S99rtcinit` would write 2024-01-01 into an RTC it found unset. What
+was still needed is now MotionSense's own, installed by its `Makefile`:
 
-`S99usb0config` is the one to know about: it sets `usb0` to `172.32.0.93` when
-the USB controller is in peripheral mode, retrying up to ten times. That is
-where the RNDIS address comes from.
+| Was | Now |
+|---|---|
+| `S99usb0config` giving `usb0` `172.32.0.93` and bringing the gadget back after a replug | `S51usbaddr` |
+| `chown` of `/var/empty` in `S50sshd` | `S49sshdir`; `S50sshd` is buildroot's |
+| `etc/ssh/sshd_config` with `PermitRootLogin yes` | `sshd_config` in this repository |
+| `etc/shadow` with root's password | `BR2_TARGET_GENERIC_ROOT_PASSWD` in `buildroot-packages.fragment` |
+| `etc/profile` | buildroot's |
+
+The staging directory `output/out/rootfs_uclibc_rv1106` is not cleared by
+`./build.sh firmware`, so a file from an overlay that has been dropped stays in
+the image until `./build.sh rootfs` unpacks the directory afresh.
 
 Luckfox also added to `build.sh` itself: the `LF_*` board-config variables
 (`LF_TARGET_ROOTFS`, `LF_BOOT_MEDIA`, `LF_HARDWARE`, `LF_SYSTEM`,
@@ -402,6 +419,16 @@ which regenerates `sysdrv/tools/board/buildroot/motionsense_defconfig` from
 inside the extracted buildroot tree. Run it after editing the fragment, then
 rebuild. It is a separate step rather than a build hook because the defconfig
 is consumed in the SDK's sysdrv stage, before any hook this app can register.
+
+Two entries in the fragment are not packages. One names `busybox.fragment`,
+which buildroot lays over the vendor's busybox configuration and which
+switches telnet off, client and server (ssh is the way in), along with
+`inetd`, `dnsd`, `crond`, `tftp` and `wget`. The other is root's
+password, written as an MD5 hash: the toolchain's uClibc is built without
+SHA-256 `crypt()`, so sshd refuses a password hashed the way buildroot hashes
+one given in plain text. Removing something busybox installed needs buildroot
+built from an empty `output`, for the reason given under per-package
+directories above.
 
 No shared library is packaged by this app. Everything it needs is already in
 the image, so `install()` of the Rockchip `.so` files is skipped whenever
@@ -663,13 +690,11 @@ leaving upstream Luckfox files untouched:
 project/cfg/BoardConfig_MotionSense_Pro_Max/
 ├── BoardConfig-SPI_NAND-Buildroot-RV1106_MotionSense_Pro_Max-IPC.mk
 ├── motionsense-oem-pre.sh                    oem trimming for this board only
-├── luckfox-userdata-pre.sh          -> symlink into BoardConfig_IPC/
+├── motionsense-rootfs-post.sh                rootfs trimming for this board only
 └── overlay/
-    ├── overlay-luckfox-config       -> symlink
-    ├── overlay-luckfox-buildroot-init   -> symlink
-    ├── overlay-luckfox-buildroot-shadow -> symlink
     └── overlay-motionsense/etc/
         ├── motionsense/board.json
+        ├── hostname, hosts, issue            the board's name
         └── TZ
 
 sysdrv/source/kernel/arch/arm/boot/dts/rv1106g-motionsense-pro-max.dts
@@ -814,6 +839,19 @@ takes the gadget off the bus, writes them, and puts it back: the PC sees the
 board leave and come back once, about 0.4 s apart, some 5 s into the boot.
 They are not kept in vendor storage: nothing reads them before this script
 does, and working them out again costs nothing.
+
+The same script gives `usb0` its IP address, `172.32.0.93` with netmask
+`255.255.0.0`, the one the README sends users to.
+
+It then stays in the background. When the cable is unplugged and plugged back
+in, adbd reopens its endpoints, and the kernel answers that by taking the
+whole gadget off the controller: `UDC` in the gadget's configfs directory goes
+empty and the board is gone from the bus, though it is running and `usb0`
+still has its address. Every two seconds the script looks at `UDC` and writes
+the controller's name back if it is empty. The vendor's `S99usb0config`
+rebuilt the whole gadget instead, which gave it new random addresses. Tried on
+a Pro Max: the PC has the board back about two seconds after the plug goes in,
+with the same addresses.
 
 Tried on the Pro Max: `usb0` is `0a:76:7c:90:8b:3a` and the PC's card is
 `enx1a43fd60638f` after each of two boots, and after restarting the gadget
