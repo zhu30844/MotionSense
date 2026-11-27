@@ -120,8 +120,32 @@ binaries the media build installs.
 
 `motionsense-rootfs-post.sh` does the same for the rootfs staging, for what no
 buildroot option leaves out: the compliance tools among libv4l's utilities and
-`ssh-keyscan`. It also tells dhcpcd to leave `usb0` alone, since that interface has a
+`ssh-keyscan`, and the vendor's udev rule for its USB gadget with the helper it
+runs. It also tells dhcpcd to leave `usb0` alone, since that interface has a
 fixed address.
+
+#### Who owns the files in the image
+
+The build runs as an ordinary user, and the vendor's packing script counts on
+fakeroot to make the files root's: it runs `chown -R 0:0` and then
+`mkfs.ubifs` under fakeroot. The `mkfs.ubifs` in the SDK is statically linked,
+which fakeroot cannot reach into, so every file in rootfs, oem and userdata
+came out as the build user's, uid 1000 on the board, `/etc/shadow` and `/root`
+included. The vendor's own `S50sshd` carries a `chown` of `/var/empty` for
+that reason: sshd will not start otherwise.
+
+The fix is a `mkfs.ubifs` that fakeroot can reach. `BR2_PACKAGE_HOST_MTD` in
+`buildroot-packages.fragment` has buildroot build one for the build machine,
+dynamically linked, and `mkfs_ubi.sh` uses it when it is there; then the
+vendor's `chown` under fakeroot does what it was written to do, the top
+directory of each partition included. Running the build with `sudo` is not
+the way: Luckfox's own instructions warn against it, and it leaves root's
+files all over the checkout. `mkfs.ubifs -U` was tried first: it makes every
+file root's but not the directory the filesystem is built from.
+
+Tried on a Pro Max: after flashing rootfs and oem, nothing on them belongs to
+uid 1000, the top directories included, and sshd starts with buildroot's own
+script. Not looked at: the ext4 images an eMMC board uses.
 
 Note the vendor naming: the function is `__RUN_POST_BUILD_USERDATA_SCRIPT` but
 the variable it reads is `RK_PRE_BUILD_USERDATA_SCRIPT`.
@@ -178,7 +202,7 @@ was still needed is now MotionSense's own, installed by its `Makefile`:
 | Was | Now |
 |---|---|
 | `S99usb0config` giving `usb0` `172.32.0.93` and bringing the gadget back after a replug | our own `S50usbdevice`, and `ms-net` |
-| `chown` of `/var/empty` in `S50sshd` | `S49sshdir`; `S50sshd` is buildroot's |
+| `chown` of `/var/empty` in `S50sshd` | not needed once the image's files are root's; `S50sshd` is buildroot's |
 | `etc/ssh/sshd_config` with `PermitRootLogin yes` | `sshd_config` in this repository |
 | `etc/shadow` with root's password | `BR2_TARGET_GENERIC_ROOT_PASSWD` in `buildroot-packages.fragment` |
 | `etc/profile` | buildroot's |
@@ -858,11 +882,12 @@ Rockchip's own vendor number, which the vendor's script uses, is not ours to
 give a new product number under. In Maskrom mode the board is still
 `2207:110c`: that comes from the chip's ROM.
 
-The vendor's udev rule `61-usbdevice.rules` is still in the image and runs
-`usbdevice` at every change of USB state. That helper looks for `adb` in the
-configuration's name and, finding it, would rebuild the gadget through
-`S50usbdevice restart`; our script leaves the configuration without a name,
-so it does nothing.
+The vendor's udev rule `61-usbdevice.rules` runs `usbdevice` at every change
+of USB state. That helper looks for `adb` in the configuration's name and,
+finding it, would rebuild the gadget through `S50usbdevice restart`. The
+Pro Max image no longer has the rule or the helper: `motionsense-rootfs-post.sh`
+removes them. Our script also leaves the configuration without a name, so on
+an image that still has them they do nothing.
 
 Tried on a Pro Max: a Linux PC sees the board once at boot, some 4 s in,
 takes it up with `cdc_ncm` and gets its address from it, and adb works; a

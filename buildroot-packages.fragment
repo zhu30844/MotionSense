@@ -88,6 +88,11 @@ BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(TOPDIR)/../../../../project/app/mot
 # hashed the way buildroot would hash it from plain text.
 BR2_TARGET_GENERIC_ROOT_PASSWD="$$1$$dXmV8ZLO$$eNAQzSYOgRkYMJRdsHwLS1"
 
+# mkfs.ubifs for the build machine. The SDK's own is statically linked, which
+# fakeroot cannot reach into, so an image packed by an ordinary user had every
+# file as that user's. The board config points the packing script at this one.
+BR2_PACKAGE_HOST_MTD=y
+
 # Not listed, but relied on and already enabled in the vendor defconfig:
 #   BR2_PACKAGE_FREETYPE   libfreetype.so.6  -> freetype::freetype
 #   libiconv arrives as a dependency of other packages

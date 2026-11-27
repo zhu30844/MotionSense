@@ -34,8 +34,9 @@ echo "${serial:-0123456789abcdef}" > strings/0x409/serialnumber
 echo rockchip > strings/0x409/manufacturer
 echo rv1106g > strings/0x409/product
 
-# The configuration is left without a name: the vendor's udev rule
-# (usbdevice) looks for "adb" in it and would rebuild the gadget its own way.
+# The configuration is left without a name: where the vendor's udev rule
+# (usbdevice) is still in an image, it looks for "adb" in the name and would
+# rebuild the gadget its own way.
 mkdir configs/b.1
 echo 500 > configs/b.1/MaxPower
 

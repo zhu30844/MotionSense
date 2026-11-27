@@ -98,7 +98,15 @@ build_updateimg              -> update.img
 
 oem hook 是从镜像中剔除文件的位置：它在所有内容复制进 staging 目录之后、文件系统生成之前，对该目录运行。`motionsense-oem-pre.sh` 用它删除 media 构建安装的 demo 和测试二进制文件。
 
-`motionsense-rootfs-post.sh` 对 rootfs staging 做同样的事，处理 buildroot 选项去不掉的东西：libv4l 工具里的几个 compliance 工具，以及 `ssh-keyscan`。它还让 dhcpcd 不去管 `usb0`，因为这个接口的地址是固定的。
+`motionsense-rootfs-post.sh` 对 rootfs staging 做同样的事，处理 buildroot 选项去不掉的东西：libv4l 工具里的几个 compliance 工具、`ssh-keyscan`，以及厂商为它的 USB gadget 准备的 udev 规则和这条规则运行的辅助脚本。它还让 dhcpcd 不去管 `usb0`，因为这个接口的地址是固定的。
+
+#### 镜像里的文件归谁
+
+构建是以普通用户的身份运行的，厂商的打包脚本指望 fakeroot 把文件变成 root 的：它在 fakeroot 下先 `chown -R 0:0`，再运行 `mkfs.ubifs`。SDK 里的 `mkfs.ubifs` 是静态链接的，fakeroot 管不到它，所以 rootfs、oem 和 userdata 里的每个文件都成了构建用户的，在板子上是 uid 1000，连 `/etc/shadow` 和 `/root` 也是。厂商自己的 `S50sshd` 里对 `/var/empty` 的那句 `chown` 就是为此而加的：不这样 sshd 起不来。
+
+修法是换一个 fakeroot 管得到的 `mkfs.ubifs`。`buildroot-packages.fragment` 里的 `BR2_PACKAGE_HOST_MTD` 让 buildroot 为构建机编一个动态链接的，`mkfs_ubi.sh` 在它存在时就用它；这样厂商在 fakeroot 下做的 `chown` 就起到了它本来该起的作用，每个分区的顶层目录也包括在内。用 `sudo` 运行构建不是办法：Luckfox 自己的说明就警告不要这样做，而且它会在检出目录里到处留下 root 的文件。最先试的是 `mkfs.ubifs -U`：它能让每个文件归 root，但管不到文件系统的起始目录。
+
+在 Pro Max 上试过：刷入 rootfs 和 oem 之后，上面没有任何东西属于 uid 1000，顶层目录也一样，sshd 用 buildroot 自带的脚本就能启动。没看过的：eMMC 板子用的 ext4 镜像。
 
 注意 vendor 的命名：函数名是 `__RUN_POST_BUILD_USERDATA_SCRIPT`，但它读取的变量是 `RK_PRE_BUILD_USERDATA_SCRIPT`。
 
@@ -140,7 +148,7 @@ Pro Max 的镜像一个都不用。`luckfox-config` 在启动时重新分配排�
 | 原来 | 现在 |
 |---|---|
 | `S99usb0config` 给 `usb0` 设 `172.32.0.93`，并在重新插线后恢复 gadget | 我们自己的 `S50usbdevice`，以及 `ms-net` |
-| `S50sshd` 里对 `/var/empty` 的 `chown` | `S49sshdir`；`S50sshd` 用 buildroot 自带的 |
+| `S50sshd` 里对 `/var/empty` 的 `chown` | 镜像里的文件归 root 之后就不需要了；`S50sshd` 用 buildroot 自带的 |
 | 带 `PermitRootLogin yes` 的 `etc/ssh/sshd_config` | 本仓库里的 `sshd_config` |
 | 带 root 密码的 `etc/shadow` | `buildroot-packages.fragment` 里的 `BR2_TARGET_GENERIC_ROOT_PASSWD` |
 | `etc/profile` | buildroot 自带的 |
@@ -567,7 +575,7 @@ USB gadget 由 MotionSense 自己建立，在它自己的 `S50usbdevice` 里。�
 
 在总线上，板子是 `1d6b:0104`，这是 Linux 基金会留给“用 Linux 做的复合 gadget”的编号，字符串是 `rockchip` 和 `rv1106g`。厂商脚本用的是 Rockchip 自己的厂商号，在它下面另取一个产品号不是我们能做主的。进入 Maskrom 模式时板子仍然是 `2207:110c`：那来自芯片的 ROM。
 
-厂商的 udev 规则 `61-usbdevice.rules` 还在镜像里，USB 状态每变一次它就运行一次 `usbdevice`。这个辅助脚本在配置的名字里找 `adb`，找到了就会通过 `S50usbdevice restart` 把 gadget 重建一遍；我们的脚本不给配置起名字，所以它什么都不做。
+厂商的 udev 规则 `61-usbdevice.rules` 在 USB 状态每变一次时运行一次 `usbdevice`。这个辅助脚本在配置的名字里找 `adb`，找到了就会通过 `S50usbdevice restart` 把 gadget 重建一遍。Pro Max 的镜像里已经没有这条规则和这个辅助脚本：`motionsense-rootfs-post.sh` 把它们删掉了。我们的脚本也不给配置起名字，所以在仍然带着它们的镜像上，它们什么都不做。
 
 在 Pro Max 上试过：Linux 电脑在启动后 4 秒左右看到板子，只看到一次，用 `cdc_ncm` 接管它并从它拿到地址，adb 可用；手工搭出同样的 NCM 网卡和地址时，Pixel 7 显示出以太网连接，并从板子拿到地址。没试过：macOS 和 Windows。
 
