@@ -32,7 +32,7 @@ LAYOUTS = {
               "pan": (32, 36)},
     # Pan axis in the corner of sides D and C, so the head looks down past two near edges.
     # Buttons in a column beside the Pro Max, clear of the turntable.
-    "corner": {"buttons": [(67, 12, 5.2), (67, 30, 3.8), (67, 44, 3.8)], "card": (53, 66.2), "lights": (20, 28, 36),
+    "corner": {"buttons": [(67, 12, 5.2), (67, 30, 3.8), (67, 44, 3.8)], "card": (52.9, 64.9), "lights": (20, 28, 36),
                "pan": (27, 49)},
 }
 LAYOUT = sys.argv[1] if len(sys.argv) > 1 else "corner"
@@ -367,7 +367,7 @@ def cap(x, y, r, power):
     cone = cq.Workplane("XY").circle(r + 1.0).workplane(offset=stop - (stop - 1.3)).circle(stem).loft()
     c = c.union(cyl(0, 0, stop - 2.3, stop - 1.3, r + 1.0)).union(cone.translate((0, 0, stop - 1.3)))
     if power:
-        c = c.cut(box(-LATCH_STEM / 2 - 0.15, -LATCH_STEM / 2 - 0.15, low, LATCH_STEM / 2 + 0.15, LATCH_STEM / 2 + 0.15, rest))
+        c = c.cut(box(-LATCH_STEM / 2 - 0.25, -LATCH_STEM / 2 - 0.25, low, LATCH_STEM / 2 + 0.25, LATCH_STEM / 2 + 0.25, rest))
     else:
         c = c.cut(cyl(0, 0, low, rest, 1.95))
     return c.translate((x, y, 0))
