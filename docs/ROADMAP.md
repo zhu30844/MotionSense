@@ -1,6 +1,6 @@
 # Roadmap
 
-Last edited: 2026-11-26
+Last edited: 2026-11-27
 
 1.x assumes one board, one SD card, fixed paths, two unsupervised processes
 and hand-written pages. 2.0 replaces those assumptions; most features come
@@ -11,6 +11,9 @@ branch.
 
 2.0 has no migration from 1.x: upgrading means reflashing the image and
 wiping the whole SD card. Recordings and configuration on it are not kept.
+
+2.0 is for the Luckfox Pico Pro Max. The Pico Ultra comes
+[after it](#luckfox-pico-ultra).
 
 ### Boards
 - [x] A read-only board file in the image that states what the board has
@@ -24,8 +27,6 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       mount point), so an SD card and a USB drive are the same to the programs
 - [x] Recording checks that storage is mounted before writing, so a missing
       card never sends recordings to flash
-- [ ] Board configuration for the Luckfox Pico Ultra, including the rule that
-      mounts its external storage
 
 ### Processes
 - [x] A process that exits is started again
@@ -44,7 +45,6 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [x] The version in `/api/status` and on the status page: it tells whether
       an update took
 - [ ] An update page
-- [ ] Updates on the Ultra: eMMC, and its own board file
 
 ### Front end
 - [ ] A redesigned front end on Vue and Vite
@@ -76,9 +76,22 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [x] PC simulator, so front-end work needs no board
 - [x] Full-stack development environment (Node.js in the devcontainer)
 - [x] The simulator runs without the board's fixed directories
-- [ ] CI releases both boards in parallel
 
 ## After 2.0
+
+### Luckfox Pico Ultra
+
+Target date: TBD.
+
+Moved out of 2.0 on 2026-11-27. The Pro Max is reached over USB, from a phone
+as well as a computer, which covers how the footage is watched; and audio,
+which the Ultra has and the Pro Max does not, has no use for now.
+
+- Board configuration, including the rule that mounts its external storage
+- Updates: eMMC, and its own board file
+- CI releases both boards in parallel
+- Audio. The recording database is designed with room for it and nothing of
+  it is built: see *Not in this design* in [events.md](events.md#not-in-this-design)
 
 ### Features
 - Peripherals

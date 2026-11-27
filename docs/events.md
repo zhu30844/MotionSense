@@ -1,6 +1,6 @@
 # Events and the recording database
 
-Last edited: 2026-11-26
+Last edited: 2026-11-27
 
 This is a design, agreed on 2026-11-25 and not built yet. It replaces the
 databases the recorder writes today, which record frame numbers and cannot say
@@ -158,6 +158,11 @@ Decided with the above, because it says what may be put in these databases.
 - Keeping an event from being cleaned up. It is wanted later. The direction is
   to copy that stretch of footage out to a directory of its own, which leaves
   the events table and cleanup by whole days as they are.
+- Audio. It waits for the Pico Ultra, which comes after 2.0, and nothing of
+  it is built. The room for it is in what is stored above: a sound is one
+  more kind of event, with what it needs to say in the optional data, and an
+  audio track is inside the segments, which the tables do not describe.
+  Neither takes a new table or a new version of the tree.
 - A clock that is wrong at boot: events go under the wrong date.
 - Encrypting footage. If it is ever wanted, the place to look first is HLS's
   own AES-128 for segments, which keeps the file system readable.
