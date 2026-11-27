@@ -112,5 +112,28 @@ which the Ultra has and the Pro Max does not, has no use for now.
 - Authentication
 - OTA
 
+### The network button: a provisional plan
+
+Talked through on 2026-11-27. None of it is built and it may change.
+
+- Pressing the network button opens a Wi-Fi access point for ten minutes. It
+  closes when the time is up and nobody is connected.
+- Only the camera can be reached through it: the board hands out addresses
+  with no router and no DNS server and forwards nothing, as it does on the
+  USB network. Someone in the house who does not have the router's password
+  can watch, and can reach nothing else.
+- The password is a default for each device, printed on its label, the way
+  routers do it.
+- The OLED shows a QR code that joins the access point, with its name beside
+  it. Tried on the 0.96 inch SSD1306 with one phone: a code of 29 by 29
+  modules, 2 pixels each with 3 pixels around it, for a 16-character name and
+  a password, scans.
+- Ethernet stays a DHCP client. Ethernet straight to a computer is what the
+  USB network is for.
+- Setting up the home Wi-Fi through the same access point is wanted and put
+  off.
+- It waits for the Wi-Fi card. Whether the card's driver can run an access
+  point has not been checked, and the image has no program for one.
+
 ### Other
 - Trim the image further: kernel modules for hardware the board does not have
