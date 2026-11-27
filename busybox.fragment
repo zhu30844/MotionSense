@@ -3,6 +3,9 @@
 # CONFIG_TELNET is not set
 # CONFIG_TELNETD is not set
 # CONFIG_FEATURE_TELNETD_STANDALONE is not set
+# ms-net runs udhcpd on an interface where the board is the host.
+CONFIG_UDHCPD=y
+CONFIG_DHCPD_LEASES_FILE="/var/run/udhcpd.leases"
 # Servers and clients nothing here starts or calls.
 # CONFIG_INETD is not set
 # CONFIG_DNSD is not set

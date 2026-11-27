@@ -1,6 +1,6 @@
 # Development notes
 
-Last edited: 2026-11-22
+Last edited: 2026-11-27
 
 Working practices for this board, recorded because each one cost time to
 establish. Build and configuration details are in [BUILD.md](BUILD.md); this
@@ -33,7 +33,7 @@ shows `offline` while the board answers HTTP normally.
 
 Recovery is `adb kill-server`, or waiting — it often returns on its own.
 
-The same re-enumeration changes the RNDIS interface's MAC, so the host creates
+The same re-enumeration changes the USB network interface's MAC, so the host creates
 a *new* netdev (`enxAAAA` → `enxBBBB`) and any IPv4 address configured on the
 old one is gone. If USB networking stops working, check `ip -br addr` for a
 renamed interface before assuming the device is at fault.

@@ -73,9 +73,14 @@ c-daemon:
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/share/MotionSense/fonts, $(MS_STAGE_DIR)/fonts)
 	# root/ goes into the rootfs, not the oem partition (__PACKAGE_ROOTFS).
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S99motionsense)
-	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S51usbaddr)
+	# Takes the place of the vendor's script of this name. S51usbaddr is its
+	# predecessor, which an output directory from before may still hold.
+	rm -f $(RK_APP_OUTPUT)/root/etc/init.d/S51usbaddr
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S50usbdevice)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S49sshdir)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/ssh, $(CURRENT_DIR)/sshd_config)
+	# In the rootfs, not oem: the network must come up even if oem does not.
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/usr/bin, $(CURRENT_DIR)/ms-net)
 	$(call MAROC_STRIP_DEBUG_SYMBOL, $(RK_APP_OUTPUT)/bin)
 
 go-agent:

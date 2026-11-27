@@ -2,7 +2,7 @@
 
 English | [简体中文](README_cn.md)
 
-Last edited: 2026-11-26
+Last edited: 2026-11-27
 
 > **Status.** To use MotionSense, take a
 > [v1 release](https://github.com/zhu30844/MotionSense/releases) or the
@@ -106,8 +106,8 @@ high rate:
    - **Ethernet to a router**: the board gets its address over DHCP. Find it in
      the router's device list, or with `adb shell ifconfig eth0`.
    - **USB to a computer**: the board's USB network interface is fixed at
-     `172.32.0.93`. Set the new interface on the computer to `172.32.0.100`,
-     netmask `255.255.0.0`, and open `http://172.32.0.93/`.
+     `172.32.0.93`, and the board gives the computer an address on the new
+     interface that appears there. Open `http://172.32.0.93/`.
    - **Ethernet straight to a computer**: nothing hands out addresses, so both
      ends need one set by hand. See [Offline communication](https://wiki.luckfox.com/Luckfox-Pico-RV1106/Ethernet-Config/#1-offline-communication)
      on the Luckfox wiki.

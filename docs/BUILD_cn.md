@@ -139,7 +139,7 @@ Pro Max 的镜像一个都不用。`luckfox-config` 在启动时重新分配排�
 
 | 原来 | 现在 |
 |---|---|
-| `S99usb0config` 给 `usb0` 设 `172.32.0.93`，并在重新插线后恢复 gadget | `S51usbaddr` |
+| `S99usb0config` 给 `usb0` 设 `172.32.0.93`，并在重新插线后恢复 gadget | 我们自己的 `S50usbdevice`，以及 `ms-net` |
 | `S50sshd` 里对 `/var/empty` 的 `chown` | `S49sshdir`；`S50sshd` 用 buildroot 自带的 |
 | 带 `PermitRootLogin yes` 的 `etc/ssh/sshd_config` | 本仓库里的 `sshd_config` |
 | 带 root 密码的 `etc/shadow` | `buildroot-packages.fragment` 里的 `BR2_TARGET_GENERIC_ROOT_PASSWD` |
@@ -288,7 +288,7 @@ agent 监听 `:5000`，提供通过 `go:embed` 嵌入的 Web 资源，并通过 
 
 它从 `luckfox_pico_defconfig` 加上声明的 package 重新生成 `sysdrv/tools/board/buildroot/motionsense_defconfig`，并刷新已解压的 buildroot 目录树中的副本。编辑 fragment 后运行它，然后重新构建。它是单独的步骤而不是构建 hook，因为 defconfig 在 SDK 的 sysdrv 阶段就被使用，早于本应用能注册的任何 hook。
 
-fragment 里有两项不是 package。一项指向 `busybox.fragment`，buildroot 把它叠在厂商的 busybox 配置上，它关掉 telnet 的客户端和服务端（登录走 ssh），以及 `inetd`、`dnsd`、`crond`、`tftp` 和 `wget`。另一项是 root 的密码，写成 MD5 哈希：工具链的 uClibc 编译时没有带 SHA-256 的 `crypt()`，而 buildroot 对明文密码用的正是这种哈希，sshd 会拒绝这样的密码。要去掉 busybox 装过的东西，buildroot 必须从空的 `output` 重新构建，原因见上文 per-package 目录一节。
+fragment 里有两项不是 package。一项指向 `busybox.fragment`，buildroot 把它叠在厂商的 busybox 配置上，它关掉 telnet 的客户端和服务端（登录走 ssh），以及 `inetd`、`dnsd`、`crond`、`tftp` 和 `wget`，并为 `ms-net` 打开 `udhcpd`。另一项是 root 的密码，写成 MD5 哈希：工具链的 uClibc 编译时没有带 SHA-256 的 `crypt()`，而 buildroot 对明文密码用的正是这种哈希，sshd 会拒绝这样的密码。要去掉 busybox 装过的东西，buildroot 必须从空的 `output` 重新构建，原因见上文 per-package 目录一节。
 
 本应用不打包任何共享库。它所需的一切都已在镜像中，因此只要设置了 `MS_RK_MEDIA_DIR`，就会跳过 Rockchip `.so` 文件的 `install()`。
 
@@ -561,13 +561,21 @@ USB 网络有两个地址：板子这一端的 `usb0`，以及板子告诉电脑
 
 `ms-hwaddr <名字>` 打印为某个名字算出来的地址，算法和以太网地址相同：`ms-hwaddr usb0` 和 `ms-hwaddr usb0-host` 就是这两个，`ms-hwaddr eth0` 则是 `RkLunch.sh` 用的那个。
 
-`S51usbaddr` 负责设置它们。它紧跟在厂商的 `S50usbdevice` 之后运行，后者负责建立 gadget，而且没有留出可以做这件事的位置。内核只在没有任何配置使用这个功能时才接受地址，所以脚本先把 gadget 从总线上摘下来，写入地址，再放回去：电脑会看到板子离开又回来一次，间隔约 0.4 秒，发生在启动后 5 秒左右。这两个地址不存进 vendor 存储：在这个脚本之前没有任何东西要读它们，重新算一遍也不花什么。
+第二个是这种形式唯一的例外：它不带本地管理位。Linux 给 USB 网卡起名时，地址带这一位就叫 `usb0`，不带才叫 `eth0`，而 Android 的以太网服务只接管 `eth0`；带着这一位时，Pixel 7 枚举了板子，之后却不用它。不带这一位的地址落在一个从未分配给本项目的号段里。它只用在板子和电脑或手机之间的那一根线上，别处不会出现。
 
-同一个脚本还给 `usb0` 设 IP 地址：`172.32.0.93`，子网掩码 `255.255.0.0`，也就是 README 让用户访问的那个。
+USB gadget 由 MotionSense 自己建立，在它自己的 `S50usbdevice` 里。这个文件和厂商的脚本同名，在镜像里取代它：应用装到 `root/` 下的东西，是在厂商的文件之后覆盖到 rootfs 上的。厂商的脚本把网卡类型写死为 RNDIS，macOS 不认，也没有 NCM 可选，地址则是随机的。我们的脚本只建两个功能：一个 NCM 网卡，Linux、macOS、Windows 11 和 Android 都认，用的是算出来的那两个地址；以及 adb。更老的 Windows 不在考虑之内。这两个地址不存进 vendor 存储：在这个脚本之前没有任何东西要读它们，重新算一遍也不花什么。
+
+在总线上，板子是 `1d6b:0104`，这是 Linux 基金会留给“用 Linux 做的复合 gadget”的编号，字符串是 `rockchip` 和 `rv1106g`。厂商脚本用的是 Rockchip 自己的厂商号，在它下面另取一个产品号不是我们能做主的。进入 Maskrom 模式时板子仍然是 `2207:110c`：那来自芯片的 ROM。
+
+厂商的 udev 规则 `61-usbdevice.rules` 还在镜像里，USB 状态每变一次它就运行一次 `usbdevice`。这个辅助脚本在配置的名字里找 `adb`，找到了就会通过 `S50usbdevice restart` 把 gadget 重建一遍；我们的脚本不给配置起名字，所以它什么都不做。
+
+在 Pro Max 上试过：Linux 电脑在启动后 4 秒左右看到板子，只看到一次，用 `cdc_ncm` 接管它并从它拿到地址，adb 可用；手工搭出同样的 NCM 网卡和地址时，Pixel 7 显示出以太网连接，并从板子拿到地址。没试过：macOS 和 Windows。
+
+同一个脚本接着调用 `ms-net usb0 host`。`ms-net` 让一个接口进入某种角色，目前只有 `host` 一种：板子使用固定地址，在 `usb0` 上是 `172.32.0.93`、子网掩码 `255.255.0.0`，busybox 的 `udhcpd` 给另一端的电脑分配 `172.32.0.100` 到 `.109` 中的一个。地址是 `ms-net` 里的一张表，每个接口一行，这样板子的地址和分配的范围不会各改各的。租约里不带网关和 DNS 服务器，电脑自己上网的路不受影响；`udhcpd` 只绑定在启动它时指定的那一个接口上。`ms-net` 放在 rootfs 里而不是 oem 里，所以没有 oem 分区时 USB 网络也能起来。在 Pro Max 上试过，电脑是一台设为自动获取地址的 Linux：它拿到了 `172.32.0.100`，默认路由没变。
 
 之后它留在后台。USB 线拔掉再插回时，adbd 会重开它的端点，内核的反应是把整个 gadget 从控制器上摘掉：gadget 的 configfs 目录里 `UDC` 变空，板子从总线上消失，虽然它还在运行，`usb0` 的地址也还在。脚本每两秒看一次 `UDC`，空了就把控制器的名字写回去。厂商的 `S99usb0config` 的做法是把整个 gadget 重建一遍，那样两个地址又会随机一次。在 Pro Max 上试过：插回去大约两秒后电脑重新看到板子，地址不变。
 
-在 Pro Max 上试过：两次启动之后 `usb0` 都是 `0a:76:7c:90:8b:3a`，电脑上的网卡都是 `enx1a43fd60638f`；按厂商脚本在拔线时的做法重启 gadget 之后也一样。在此之前，电脑上的网卡每次启动都换一个名字。只用 Linux 电脑试过。
+在序列号为 `81d0a07cd3bbb4c8` 的 Pro Max 上试过：每次启动之后、以及拔线再插回之后，`usb0` 都是 `7e:94:2d:cd:97:8e`，电脑上的网卡都是 `enx500457289b23`。用厂商的脚本时，电脑上的网卡每次启动都换一个名字。
 
 `userdata` 的大小保证最大的升级包放得下：`boot`、`rootfs`、`oem` 全部装满时约 93 MB，可用空间是 107 MB。
 

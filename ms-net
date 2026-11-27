@@ -1,0 +1,36 @@
+#!/bin/sh
+# Puts a network interface in a role. host: the board has a fixed address and
+# hands the computer on the other end one of its own. No other role exists yet.
+# usage: ms-net <interface> host
+
+IF=$1 ROLE=$2
+
+# One line for each interface that can be host: the board's address, the mask,
+# and the addresses given out. Each interface needs a network of its own. More
+# than one address, so a second computer need not wait for the first's lease.
+case "$IF" in
+    usb0) ADDR=172.32.0.93 MASK=255.255.0.0 FIRST=172.32.0.100 LAST=172.32.0.109 ;;
+    *) echo "ms-net: no addresses for '$IF'" >&2; exit 1 ;;
+esac
+[ "$ROLE" = host ] || { echo "usage: ms-net <interface> host" >&2; exit 1; }
+
+RUN=/var/run/udhcpd-$IF
+[ -f $RUN.pid ] && kill "$(cat $RUN.pid)" 2>/dev/null
+
+ifconfig "$IF" "$ADDR" netmask "$MASK" || exit 1
+
+# No router and no DNS server: the computer keeps its own way to the internet.
+cat > $RUN.conf <<EOF
+interface $IF
+start $FIRST
+end $LAST
+max_leases 10
+option subnet $MASK
+option lease 600
+lease_file $RUN.leases
+EOF
+: > $RUN.leases
+# This busybox writes no pid files, so the pid is kept here. -S: what it hands
+# out goes to the system log.
+udhcpd -f -S $RUN.conf > /dev/null 2>&1 &
+echo $! > $RUN.pid
