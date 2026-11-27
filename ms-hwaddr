@@ -5,6 +5,10 @@ serial=$(sed -n 's/^Serial[^:]*: *//p' /proc/cpuinfo)
 # A serial of all zeros is no serial.
 [ -n "$1" ] && [ -n "$(echo "$serial" | tr -d 0)" ] || exit 1
 
-# The first byte is made unicast and locally administered.
+# The first byte is made unicast and locally administered. Not the second for
+# the far end of the USB network: Linux names a USB network card usb0 when its
+# address has that bit and eth0 when not, and Android only takes up eth0. That
+# address is in a range nobody gave us; it never leaves the one cable.
+case "$1" in usb0-host) local=0 ;; *) local=2 ;; esac
 h=$(printf 'motionsense %s %s' "$1" "$serial" | sha256sum)
-printf '%02x:%s\n' $(( (0x${h:0:2} & 0xfc) | 2 )) "$(echo "${h:2:10}" | sed 's/../&:/g; s/:$//')"
+printf '%02x:%s\n' $(( (0x${h:0:2} & 0xfc) | local )) "$(echo "${h:2:10}" | sed 's/../&:/g; s/:$//')"

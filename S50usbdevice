@@ -1,0 +1,71 @@
+#!/bin/sh
+# Builds the USB gadget: a network card and adb. It has the name of the
+# vendor's script so that it takes its place in the image; that one builds an
+# RNDIS card, which macOS does not take up, with random hardware addresses,
+# so a PC saw a new network card at every boot. Here the card is NCM, which
+# Linux, macOS, Windows 11 and Android phones take up, and its two hardware
+# addresses are the same at every boot. Then the IP addresses are set, and
+# the script stays to put the gadget back on the bus whenever it drops off.
+
+# adbd passes its environment on to every adb shell.
+. /etc/profile
+
+C=/sys/kernel/config
+G=$C/usb_gadget/rockchip
+HWADDR=/oem/usr/bin/ms-hwaddr
+
+[ "$1" = start ] && [ ! -d $G ] || exit 0
+
+[ -d $C/usb_gadget ] || mount -t configfs none $C
+mkdir $G || exit 1
+cd $G || exit 1
+
+# The Linux Foundation's numbers for a composite gadget made with Linux.
+echo 0x1d6b > idVendor
+echo 0x0104 > idProduct
+echo 0x0200 > bcdUSB
+# Several functions, each announced by an interface association.
+echo 0xef > bDeviceClass
+echo 0x02 > bDeviceSubClass
+echo 0x01 > bDeviceProtocol
+mkdir strings/0x409
+serial=$(sed -n 's/^Serial[^:]*: *//p' /proc/cpuinfo)
+echo "${serial:-0123456789abcdef}" > strings/0x409/serialnumber
+echo rockchip > strings/0x409/manufacturer
+echo rv1106g > strings/0x409/product
+
+# The configuration is left without a name: the vendor's udev rule
+# (usbdevice) looks for "adb" in it and would rebuild the gadget its own way.
+mkdir configs/b.1
+echo 500 > configs/b.1/MaxPower
+
+mkdir functions/ncm.gs0
+# Without the oem partition the kernel's random addresses stay.
+dev=$($HWADDR usb0) && host=$($HWADDR usb0-host) && {
+    echo "$dev" > functions/ncm.gs0/dev_addr
+    echo "$host" > functions/ncm.gs0/host_addr
+}
+ln -s $G/functions/ncm.gs0 configs/b.1/f1
+
+mkdir functions/ffs.adb
+ln -s $G/functions/ffs.adb configs/b.1/f2
+mkdir -p /dev/usb-ffs/adb
+mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
+start-stop-daemon --start --quiet --background --exec /usr/bin/adbd
+
+# The gadget binds once adbd has written its descriptors.
+udc=$(ls /sys/class/udc | head -n 1)
+n=0
+until echo "$udc" > UDC 2>/dev/null || [ $n -ge 50 ]; do
+    n=$((n + 1))
+    usleep 100000
+done
+
+# The board's address, and one for the computer on the other end.
+ms-net usb0 host
+
+# When the cable is plugged back in adbd reopens its endpoints, and the kernel
+# takes the whole gadget off the controller for that; nothing puts it back.
+while sleep 2; do
+    [ -n "$(cat $G/UDC)" ] || echo "$udc" > $G/UDC
+done > /dev/null 2>&1 &

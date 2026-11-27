@@ -177,7 +177,7 @@ was still needed is now MotionSense's own, installed by its `Makefile`:
 
 | Was | Now |
 |---|---|
-| `S99usb0config` giving `usb0` `172.32.0.93` and bringing the gadget back after a replug | `S51usbaddr` |
+| `S99usb0config` giving `usb0` `172.32.0.93` and bringing the gadget back after a replug | our own `S50usbdevice`, and `ms-net` |
 | `chown` of `/var/empty` in `S50sshd` | `S49sshdir`; `S50sshd` is buildroot's |
 | `etc/ssh/sshd_config` with `PermitRootLogin yes` | `sshd_config` in this repository |
 | `etc/shadow` with root's password | `BR2_TARGET_GENERIC_ROOT_PASSWD` in `buildroot-packages.fragment` |
@@ -423,7 +423,8 @@ is consumed in the SDK's sysdrv stage, before any hook this app can register.
 Two entries in the fragment are not packages. One names `busybox.fragment`,
 which buildroot lays over the vendor's busybox configuration and which
 switches telnet off, client and server (ssh is the way in), along with
-`inetd`, `dnsd`, `crond`, `tftp` and `wget`. The other is root's
+`inetd`, `dnsd`, `crond`, `tftp` and `wget`, and switches `udhcpd` on for
+`ms-net`. The other is root's
 password, written as an MD5 hash: the toolchain's uClibc is built without
 SHA-256 `crypt()`, so sshd refuses a password hashed the way buildroot hashes
 one given in plain text. Removing something busybox installed needs buildroot
@@ -832,16 +833,54 @@ whatever had been set up for the last one, a fixed IP for instance, was gone.
 as the Ethernet one: `ms-hwaddr usb0` and `ms-hwaddr usb0-host` are these two,
 and `ms-hwaddr eth0` is what `RkLunch.sh` uses.
 
-`S51usbaddr` sets them. It runs straight after the vendor's `S50usbdevice`,
-which builds the gadget and offers no place to do this from. The kernel takes
-the addresses only while no configuration uses the function, so the script
-takes the gadget off the bus, writes them, and puts it back: the PC sees the
-board leave and come back once, about 0.4 s apart, some 5 s into the boot.
-They are not kept in vendor storage: nothing reads them before this script
-does, and working them out again costs nothing.
+The second is the one exception to the form: it does not have the locally
+administered bit. Linux names a USB network card `usb0` when its address has
+that bit and `eth0` when it does not, and Android's Ethernet service only
+takes up `eth0`; with the bit, a Pixel 7 enumerated the board and then made
+no use of it. An address without the bit lies in a range that was never
+given to this project. It is used on the one cable between the board and the
+computer or phone and nowhere else.
 
-The same script gives `usb0` its IP address, `172.32.0.93` with netmask
-`255.255.0.0`, the one the README sends users to.
+MotionSense builds the USB gadget itself, in its own `S50usbdevice`. The file
+has the name of the vendor's script and takes its place in the image, since
+what the app installs under `root/` is copied over the rootfs after the
+vendor's files. The vendor's script has the kind of network card fixed as
+RNDIS, which macOS does not take up, offers no NCM, and leaves the addresses
+random. Ours makes two functions and nothing else: an NCM network card, which
+Linux, macOS, Windows 11 and Android take up, with the two worked-out
+addresses, and adb. Older Windows is not catered for. The addresses are not
+kept in vendor storage: nothing reads them before this script does, and
+working them out again costs nothing.
+
+On the bus the board is `1d6b:0104`, the Linux Foundation's numbers for a
+composite gadget made with Linux, with the strings `rockchip` and `rv1106g`.
+Rockchip's own vendor number, which the vendor's script uses, is not ours to
+give a new product number under. In Maskrom mode the board is still
+`2207:110c`: that comes from the chip's ROM.
+
+The vendor's udev rule `61-usbdevice.rules` is still in the image and runs
+`usbdevice` at every change of USB state. That helper looks for `adb` in the
+configuration's name and, finding it, would rebuild the gadget through
+`S50usbdevice restart`; our script leaves the configuration without a name,
+so it does nothing.
+
+Tried on a Pro Max: a Linux PC sees the board once at boot, some 4 s in,
+takes it up with `cdc_ncm` and gets its address from it, and adb works; a
+Pixel 7 showed an Ethernet connection and got its address from the board when
+the same NCM card and addresses were set up by hand. Not tried: macOS and
+Windows.
+
+The same script then calls `ms-net usb0 host`. `ms-net` puts an interface in a
+role, and `host` is the only one so far: the board takes a fixed address,
+`172.32.0.93` with netmask `255.255.0.0` on `usb0`, and busybox's `udhcpd`
+hands the computer on the other end one of `172.32.0.100` to `.109`. The
+addresses are a table in `ms-net`, one line for each interface, so the board's
+address and the range given out cannot drift apart. The lease carries no
+router and no DNS server, so the computer's own way to the internet is left
+alone, and `udhcpd` binds to the one interface it is started for. `ms-net` is
+in the rootfs, not in oem, so the USB network comes up without the oem
+partition. Tried on a Pro Max with a Linux PC set to obtain its address
+automatically: it got `172.32.0.100` and kept its default route.
 
 It then stays in the background. When the cable is unplugged and plugged back
 in, adbd reopens its endpoints, and the kernel answers that by taking the
@@ -853,10 +892,10 @@ rebuilt the whole gadget instead, which gave it new random addresses. Tried on
 a Pro Max: the PC has the board back about two seconds after the plug goes in,
 with the same addresses.
 
-Tried on the Pro Max: `usb0` is `0a:76:7c:90:8b:3a` and the PC's card is
-`enx1a43fd60638f` after each of two boots, and after restarting the gadget
-the way the vendor's script does when the cable is pulled. Before, the PC's
-card had a new name at every boot. Tried with a Linux PC only.
+Tried on a Pro Max, serial `81d0a07cd3bbb4c8`: `usb0` is `7e:94:2d:cd:97:8e`
+and the PC's card is `enx500457289b23` after every boot and after the cable
+is pulled and put back. With the vendor's script the PC's card had a new name
+at every boot.
 
 `userdata` is sized so that the largest possible package still fits: with
 `boot`, `rootfs` and `oem` all full it is about 93 MB, in 107 MB.
