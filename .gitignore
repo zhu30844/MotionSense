@@ -45,3 +45,15 @@ Thumbs.db
 # --- vendor/: what scripts/sync-vendor.sh copies in ---
 /vendor/*/include/
 /vendor/*/lib/
+
+# --- hardware/ ---
+# STEP and STL written by hardware/enclosure/model.py.
+/hardware/enclosure/out/
+/hardware/**/__pycache__/
+# Gerber, parts and placement files written by hardware/promax-baseboard/gen_fab.py.
+/hardware/promax-baseboard/fab/
+# KiCad per-user state and backups.
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.lck
