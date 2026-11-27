@@ -1,0 +1,4 @@
+#!/bin/sh
+# sshd will not start unless /var/empty is root's; the image is packed as the build user.
+[ "$1" = start ] && chown root:root /var/empty
+exit 0

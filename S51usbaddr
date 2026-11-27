@@ -1,13 +1,16 @@
 #!/bin/sh
-# Gives the USB network the same two addresses at every boot. S50usbdevice has
-# just made the gadget with random ones, and a PC takes a new address on its
-# end for a new network card, forgetting what was set up for the last.
+# Gives usb0 its IP address, and the USB network the same two hardware
+# addresses at every boot. S50usbdevice has just made the gadget with random
+# ones, and a PC takes a new address on its end for a new network card,
+# forgetting what was set up for the last.
 
 G=/sys/kernel/config/usb_gadget/rockchip
 F=$G/functions/rndis.gs0
 HWADDR=/oem/usr/bin/ms-hwaddr
 
 [ "$1" = start ] && [ -d $F ] || exit 0
+# The address the README sends users to; it stays over the down and up below.
+ifconfig usb0 172.32.0.93 netmask 255.255.0.0
 dev=$($HWADDR usb0) && host=$($HWADDR usb0-host) || exit 0
 [ "$(cat $F/dev_addr)" = "$dev" ] && [ "$(cat $F/host_addr)" = "$host" ] && exit 0
 

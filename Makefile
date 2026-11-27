@@ -74,6 +74,8 @@ c-daemon:
 	# root/ goes into the rootfs, not the oem partition (__PACKAGE_ROOTFS).
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S99motionsense)
 	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S51usbaddr)
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/init.d, $(CURRENT_DIR)/S49sshdir)
+	$(call MAROC_COPY_PKG_TO_APP_OUTPUT, $(RK_APP_OUTPUT)/root/etc/ssh, $(CURRENT_DIR)/sshd_config)
 	$(call MAROC_STRIP_DEBUG_SYMBOL, $(RK_APP_OUTPUT)/bin)
 
 go-agent:
