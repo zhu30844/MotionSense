@@ -942,6 +942,17 @@ build (`scripts/mk-release.sh` makes one beside the bundle):
 | `SHA256SUMS` | one line per image |
 | `recovery.img`, `boot.img`, `rootfs.img`, `oem.img` | all four by default, 47 MB; `--only oem` packs the app alone |
 
+```bash
+scripts/mk-update.sh                           # all four, for the board that was built
+scripts/mk-update.sh --only "boot rootfs oem"  # without recovery
+scripts/mk-update.sh --only oem                # the app alone
+```
+
+The board's name comes from the `board.json` the build put in the rootfs,
+which is the file the board compares the package with, and the version from
+`scripts/version.sh`; `--slug` and `--version` say otherwise. The file goes to
+`output/release/` in the SDK.
+
 Never `uboot`: losing power while it is written leaves a board that cannot
 boot at all. Never `userdata`: it holds the configuration and the package
 itself.
