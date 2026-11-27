@@ -64,6 +64,29 @@ BR2_PACKAGE_CJSON=y     # libcjson.so.1    -> cjson::cjson
 # BR2_PACKAGE_LRZSZ is not set
 # BR2_PACKAGE_EVTEST is not set
 # BR2_PACKAGE_TIME is not set
+# BR2_PACKAGE_WGET is not set
+# BR2_PACKAGE_LIBCURL is not set
+# BR2_PACKAGE_LIBCURL_CURL is not set
+# BR2_PACKAGE_LIBCURL_VERBOSE is not set
+# BR2_PACKAGE_DIALOG is not set
+# BR2_PACKAGE_HTOP is not set
+# BR2_PACKAGE_NANO is not set
+
+# The board is an ssh server only: no ssh, scp, sftp, ssh-add or ssh-agent.
+# BR2_PACKAGE_OPENSSH_CLIENT is not set
+
+# No bash: every script that runs on the board is written for busybox sh. A
+# few helper scripts of other packages (dtdiff, gcore, xzgrep and its kin) ask
+# for bash and no longer run.
+# BR2_PACKAGE_BASH is not set
+
+# busybox.fragment beside this file switches telnet off in busybox.
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(TOPDIR)/../../../../project/app/motionsense/busybox.fragment"
+
+# root's password, "luckfox", as an MD5 hash with each $ doubled for make. The
+# toolchain's uClibc has no SHA-256 crypt(), so sshd turns down a password
+# hashed the way buildroot would hash it from plain text.
+BR2_TARGET_GENERIC_ROOT_PASSWD="$$1$$dXmV8ZLO$$eNAQzSYOgRkYMJRdsHwLS1"
 
 # Not listed, but relied on and already enabled in the vendor defconfig:
 #   BR2_PACKAGE_FREETYPE   libfreetype.so.6  -> freetype::freetype

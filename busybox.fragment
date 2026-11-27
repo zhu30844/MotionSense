@@ -1,0 +1,12 @@
+# Laid over the vendor's busybox.config; named in buildroot-packages.fragment.
+# No telnet, client or server: ssh is the way in.
+# CONFIG_TELNET is not set
+# CONFIG_TELNETD is not set
+# CONFIG_FEATURE_TELNETD_STANDALONE is not set
+# Servers and clients nothing here starts or calls.
+# CONFIG_INETD is not set
+# CONFIG_DNSD is not set
+# CONFIG_CROND is not set
+# CONFIG_CRONTAB is not set
+# CONFIG_TFTP is not set
+# CONFIG_WGET is not set
