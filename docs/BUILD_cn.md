@@ -139,7 +139,7 @@ Pro Max 的镜像一个都不用。`luckfox-config` 在启动时重新分配排�
 
 | 原来 | 现在 |
 |---|---|
-| `S99usb0config` 给 `usb0` 设 `172.32.0.93` | `S51usbaddr` 里的一行 |
+| `S99usb0config` 给 `usb0` 设 `172.32.0.93`，并在重新插线后恢复 gadget | `S51usbaddr` |
 | `S50sshd` 里对 `/var/empty` 的 `chown` | `S49sshdir`；`S50sshd` 用 buildroot 自带的 |
 | 带 `PermitRootLogin yes` 的 `etc/ssh/sshd_config` | 本仓库里的 `sshd_config` |
 | 带 root 密码的 `etc/shadow` | `buildroot-packages.fragment` 里的 `BR2_TARGET_GENERIC_ROOT_PASSWD` |
@@ -564,6 +564,8 @@ USB 网络有两个地址：板子这一端的 `usb0`，以及板子告诉电脑
 `S51usbaddr` 负责设置它们。它紧跟在厂商的 `S50usbdevice` 之后运行，后者负责建立 gadget，而且没有留出可以做这件事的位置。内核只在没有任何配置使用这个功能时才接受地址，所以脚本先把 gadget 从总线上摘下来，写入地址，再放回去：电脑会看到板子离开又回来一次，间隔约 0.4 秒，发生在启动后 5 秒左右。这两个地址不存进 vendor 存储：在这个脚本之前没有任何东西要读它们，重新算一遍也不花什么。
 
 同一个脚本还给 `usb0` 设 IP 地址：`172.32.0.93`，子网掩码 `255.255.0.0`，也就是 README 让用户访问的那个。
+
+之后它留在后台。USB 线拔掉再插回时，adbd 会重开它的端点，内核的反应是把整个 gadget 从控制器上摘掉：gadget 的 configfs 目录里 `UDC` 变空，板子从总线上消失，虽然它还在运行，`usb0` 的地址也还在。脚本每两秒看一次 `UDC`，空了就把控制器的名字写回去。厂商的 `S99usb0config` 的做法是把整个 gadget 重建一遍，那样两个地址又会随机一次。在 Pro Max 上试过：插回去大约两秒后电脑重新看到板子，地址不变。
 
 在 Pro Max 上试过：两次启动之后 `usb0` 都是 `0a:76:7c:90:8b:3a`，电脑上的网卡都是 `enx1a43fd60638f`；按厂商脚本在拔线时的做法重启 gadget 之后也一样。在此之前，电脑上的网卡每次启动都换一个名字。只用 Linux 电脑试过。
 

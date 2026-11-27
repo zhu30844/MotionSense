@@ -177,7 +177,7 @@ was still needed is now MotionSense's own, installed by its `Makefile`:
 
 | Was | Now |
 |---|---|
-| `S99usb0config` giving `usb0` `172.32.0.93` | a line in `S51usbaddr` |
+| `S99usb0config` giving `usb0` `172.32.0.93` and bringing the gadget back after a replug | `S51usbaddr` |
 | `chown` of `/var/empty` in `S50sshd` | `S49sshdir`; `S50sshd` is buildroot's |
 | `etc/ssh/sshd_config` with `PermitRootLogin yes` | `sshd_config` in this repository |
 | `etc/shadow` with root's password | `BR2_TARGET_GENERIC_ROOT_PASSWD` in `buildroot-packages.fragment` |
@@ -842,6 +842,16 @@ does, and working them out again costs nothing.
 
 The same script gives `usb0` its IP address, `172.32.0.93` with netmask
 `255.255.0.0`, the one the README sends users to.
+
+It then stays in the background. When the cable is unplugged and plugged back
+in, adbd reopens its endpoints, and the kernel answers that by taking the
+whole gadget off the controller: `UDC` in the gadget's configfs directory goes
+empty and the board is gone from the bus, though it is running and `usb0`
+still has its address. Every two seconds the script looks at `UDC` and writes
+the controller's name back if it is empty. The vendor's `S99usb0config`
+rebuilt the whole gadget instead, which gave it new random addresses. Tried on
+a Pro Max: the PC has the board back about two seconds after the plug goes in,
+with the same addresses.
 
 Tried on the Pro Max: `usb0` is `0a:76:7c:90:8b:3a` and the PC's card is
 `enx1a43fd60638f` after each of two boots, and after restarting the gadget
