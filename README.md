@@ -11,7 +11,7 @@ Last edited: 2026-11-27
 > is released.
 
 Motion-triggered video recording for the Luckfox Pico Pro Max (Rockchip
-RV1106; support for the Pico Ultra is in progress). Records H.264 to HLS on
+RV1106; the Pico Ultra is planned for after 2.0). Records H.264 to HLS on
 the SD card, serves a live view over WebRTC and a playback UI over HTTP, and
 logs motion events to SQLite.
 

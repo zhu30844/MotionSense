@@ -1,6 +1,6 @@
 # Roadmap
 
-Last edited: 2026-11-26
+Last edited: 2026-11-27
 
 1.x assumes one board, one SD card, fixed paths, two unsupervised processes
 and hand-written pages. 2.0 replaces those assumptions; most features come
@@ -11,6 +11,9 @@ branch.
 
 2.0 has no migration from 1.x: upgrading means reflashing the image and
 wiping the whole SD card. Recordings and configuration on it are not kept.
+
+2.0 is for the Luckfox Pico Pro Max. The Pico Ultra comes
+[after it](#luckfox-pico-ultra).
 
 ### Boards
 - [x] A read-only board file in the image that states what the board has
@@ -24,8 +27,6 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
       mount point), so an SD card and a USB drive are the same to the programs
 - [x] Recording checks that storage is mounted before writing, so a missing
       card never sends recordings to flash
-- [ ] Board configuration for the Luckfox Pico Ultra, including the rule that
-      mounts its external storage
 
 ### Processes
 - [x] A process that exits is started again
@@ -44,7 +45,6 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [x] The version in `/api/status` and on the status page: it tells whether
       an update took
 - [ ] An update page
-- [ ] Updates on the Ultra: eMMC, and its own board file
 
 ### Front end
 - [ ] A redesigned front end on Vue and Vite
@@ -76,9 +76,22 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
 - [x] PC simulator, so front-end work needs no board
 - [x] Full-stack development environment (Node.js in the devcontainer)
 - [x] The simulator runs without the board's fixed directories
-- [ ] CI releases both boards in parallel
 
 ## After 2.0
+
+### Luckfox Pico Ultra
+
+Target date: TBD.
+
+Moved out of 2.0 on 2026-11-27. The Pro Max is reached over USB, from a phone
+as well as a computer, which covers how the footage is watched; and audio,
+which the Ultra has and the Pro Max does not, has no use for now.
+
+- Board configuration, including the rule that mounts its external storage
+- Updates: eMMC, and its own board file
+- CI releases both boards in parallel
+- Audio. The recording database is designed with room for it and nothing of
+  it is built: see *Not in this design* in [events.md](events.md#not-in-this-design)
 
 ### Features
 - Peripherals
@@ -98,6 +111,29 @@ wiping the whole SD card. Recordings and configuration on it are not kept.
   trigger recording
 - Authentication
 - OTA
+
+### The network button: a provisional plan
+
+Talked through on 2026-11-27. None of it is built and it may change.
+
+- Pressing the network button opens a Wi-Fi access point for ten minutes. It
+  closes when the time is up and nobody is connected.
+- Only the camera can be reached through it: the board hands out addresses
+  with no router and no DNS server and forwards nothing, as it does on the
+  USB network. Someone in the house who does not have the router's password
+  can watch, and can reach nothing else.
+- The password is a default for each device, printed on its label, the way
+  routers do it.
+- The OLED shows a QR code that joins the access point, with its name beside
+  it. Tried on the 0.96 inch SSD1306 with one phone: a code of 29 by 29
+  modules, 2 pixels each with 3 pixels around it, for a 16-character name and
+  a password, scans.
+- Ethernet stays a DHCP client. Ethernet straight to a computer is what the
+  USB network is for.
+- Setting up the home Wi-Fi through the same access point is wanted and put
+  off.
+- It waits for the Wi-Fi card. Whether the card's driver can run an access
+  point has not been checked, and the image has no program for one.
 
 ### Other
 - Trim the image further: kernel modules for hardware the board does not have
